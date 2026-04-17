@@ -1,0 +1,339 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Neil's Vibe Demo</title>
+<!--
+  Landing page for Neil's vibe demo.
+  顶部: 个人头条 hero (名字 + 简介 + 外链)
+  中段: 过滤筛选 (all / experiment / product / tool)
+  下段: 产品网格卡片, 每张 → 一个 demo/项目
+  点击卡片跳转到对应路径 (实验或产品).
+  视觉语系延续之前的 slow goods: 米纸底 + Fraunces 大字 + grain + 3D tilt hover.
+-->
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<style>
+:root{
+  --paper:#efe7d6; --paper-2:#e3d8c1; --cream:#f6eddb;
+  --ink:#1b1815; --ink-dim:#746c5b;
+  --brick:#c64a2a; --moss:#384a33; --brass:#b99754; --sky:#4a6d87; --rose:#e38a6a; --plum:#6a3a5d;
+}
+@import url('https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght,WONK@0,9..144,300..900,0..1;1,9..144,300..900,0..1&family=Inter:wght@300..800&family=JetBrains+Mono:wght@400;600&display=swap');
+*{margin:0;padding:0;box-sizing:border-box}
+html,body{min-height:100%;background:var(--paper);color:var(--ink);font-family:'Inter',system-ui,sans-serif;cursor:none}
+
+.grain{position:fixed;inset:0;pointer-events:none;z-index:80;
+  background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='220' height='220'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 0.55 0'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>");
+  background-size:220px 220px;opacity:0.22;mix-blend-mode:multiply}
+
+/* ---------- header ---------- */
+header{
+  display:grid;grid-template-columns:1fr 1fr 1fr;align-items:center;
+  padding:28px clamp(32px,4vw,64px);
+  border-bottom:1px solid rgba(27,24,21,0.15);
+}
+header .l,header .r{font-family:'JetBrains Mono',monospace;font-size:11px;letter-spacing:0.26em;text-transform:uppercase;color:var(--ink-dim)}
+header .l b{font-family:'Fraunces',serif;font-style:italic;font-weight:500;font-variation-settings:"opsz" 14,"WONK" 1;color:var(--ink);font-size:15px;letter-spacing:0}
+header .c{text-align:center;font-family:'Fraunces',serif;font-style:italic;font-weight:500;font-variation-settings:"opsz" 24,"WONK" 1;font-size:20px;color:var(--ink)}
+header .r{text-align:right;display:flex;gap:14px;justify-content:flex-end;align-items:center}
+header .r a{color:var(--ink-dim);text-decoration:none;transition:color 0.2s}
+header .r a:hover{color:var(--brick)}
+
+/* ---------- hero ---------- */
+.hero{padding:68px clamp(32px,4vw,64px) 36px;position:relative}
+.hero .eyebrow{font-family:'JetBrains Mono',monospace;font-size:11px;letter-spacing:0.32em;text-transform:uppercase;color:var(--ink-dim);margin-bottom:18px}
+.hero h1{font-family:'Fraunces',serif;font-weight:900;font-variation-settings:"opsz" 144,"SOFT" 30,"WONK" 1;font-size:clamp(56px,10vw,160px);line-height:0.86;letter-spacing:-0.035em;max-width:14ch;color:var(--ink)}
+.hero h1 em{font-style:italic;color:var(--brick);font-variation-settings:"opsz" 144,"SOFT" 80,"WONK" 1}
+.hero h1 .amp{color:var(--brass);display:inline-block;padding:0 0.08em;transform:translateY(-0.05em);font-weight:500}
+.hero .row{display:flex;justify-content:space-between;align-items:flex-end;gap:32px;margin-top:28px}
+.hero .sub{max-width:580px;font-family:'Fraunces',serif;font-style:italic;font-variation-settings:"opsz" 22,"WONK" 1;font-size:20px;line-height:1.42;color:var(--ink);opacity:0.86}
+.hero .kpi{display:flex;gap:24px;font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:0.26em;text-transform:uppercase;color:var(--ink-dim);align-items:flex-end}
+.hero .kpi .k{display:flex;flex-direction:column;align-items:center;gap:4px}
+.hero .kpi .k b{font-family:'Fraunces',serif;font-style:italic;font-weight:700;font-variation-settings:"opsz" 48,"WONK" 1;font-size:40px;letter-spacing:-0.01em;color:var(--ink)}
+
+/* ---------- filters ---------- */
+.filters{padding:0 clamp(32px,4vw,64px) 24px;display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.filters .label{font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:0.28em;text-transform:uppercase;color:var(--ink-dim);margin-right:8px}
+.filters button{
+  font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:0.28em;text-transform:uppercase;color:var(--ink-dim);
+  padding:6px 12px;border:1px solid rgba(27,24,21,0.25);border-radius:999px;
+  background:transparent;cursor:pointer;transition:background 0.2s,color 0.2s,border-color 0.2s;
+}
+.filters button:hover{color:var(--ink)}
+.filters button.on{color:var(--ink);background:var(--cream);border-color:var(--ink)}
+
+/* ---------- grid ---------- */
+.grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:clamp(18px,2vw,36px);padding:0 clamp(32px,4vw,64px) 80px;perspective:1500px}
+@media (max-width:900px){ .grid{grid-template-columns:repeat(2,1fr)} }
+@media (max-width:620px){ .grid{grid-template-columns:1fr} }
+
+.card{
+  --c1:var(--moss); --c2:var(--brick); --c3:var(--cream);
+  --mx:50%; --my:50%;
+  position:relative;aspect-ratio:3/4;background:var(--c3);border-radius:18px;overflow:hidden;
+  display:flex;flex-direction:column;transform-style:preserve-3d;will-change:transform;
+  transition:background-color 0.4s cubic-bezier(0.2,0.7,0.2,1);
+  box-shadow:0 1px 2px rgba(27,24,21,0.06),0 18px 40px -20px rgba(27,24,21,0.18);
+  cursor:none;text-decoration:none;color:var(--ink);
+}
+.card:hover .img{transform:scale(1.04)}
+.card .img{
+  position:relative;flex:1 1 0;background:var(--c2);overflow:hidden;
+  transition:background-color 0.4s cubic-bezier(0.2,0.7,0.2,1), transform 0.6s cubic-bezier(0.2,0.7,0.2,1);
+}
+.card .img svg{position:absolute;inset:0;width:100%;height:100%;display:block}
+.card .shine{
+  position:absolute;inset:0;pointer-events:none;z-index:3;opacity:0;
+  background:radial-gradient(260px 260px at var(--mx) var(--my), rgba(255,244,225,0.45) 0%, rgba(255,244,225,0) 60%);
+  transition:opacity 0.3s ease;mix-blend-mode:screen;
+}
+.card:hover .shine{opacity:1}
+.card .grainIn{
+  position:absolute;inset:0;pointer-events:none;z-index:2;opacity:0.22;mix-blend-mode:multiply;
+  background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='160' height='160'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='1.2' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 0.7 0'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>");
+  background-size:160px 160px;
+}
+.card .tag{position:absolute;top:14px;left:14px;z-index:4;padding:5px 10px;border-radius:999px;background:rgba(27,24,21,0.85);color:var(--cream);font-family:'JetBrains Mono',monospace;font-size:9px;letter-spacing:0.24em;text-transform:uppercase}
+.card .idx{position:absolute;top:14px;right:14px;z-index:4;font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:0.2em;color:var(--cream);mix-blend-mode:difference}
+.card .meta{padding:18px 22px 22px;display:flex;flex-direction:column;gap:6px;background:var(--c3);z-index:5;position:relative}
+.card .meta .name{font-family:'Fraunces',serif;font-weight:700;font-style:normal;font-variation-settings:"opsz" 48,"WONK" 1;font-size:clamp(20px,1.8vw,28px);letter-spacing:-0.01em;color:var(--ink);line-height:1.05}
+.card .meta .name em{font-style:italic;color:var(--c2);font-variation-settings:"opsz" 48,"SOFT" 80,"WONK" 1;transition:color 0.4s}
+.card .meta .sub{font-family:'Inter',sans-serif;font-size:12px;color:var(--ink-dim);letter-spacing:0.04em;line-height:1.45;min-height:2.9em}
+.card .meta .row2{display:flex;justify-content:space-between;align-items:center;margin-top:10px}
+.card .meta .kind{font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:0.24em;text-transform:uppercase;color:var(--ink-dim)}
+.card .meta .cta{font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:0.24em;text-transform:uppercase;padding:7px 13px;border-radius:999px;border:1px solid var(--ink);color:var(--ink);background:transparent;transition:background 0.25s,color 0.25s}
+.card:hover .meta .cta{background:var(--ink);color:var(--cream)}
+
+/* palette rotation per card (subtle variety) */
+.card[data-v="1"]{ --c1:var(--moss); --c2:var(--brick); }
+.card[data-v="2"]{ --c1:var(--brass); --c2:var(--plum); }
+.card[data-v="3"]{ --c1:var(--sky); --c2:var(--rose); }
+.card[data-v="4"]{ --c1:var(--brick); --c2:var(--moss); }
+.card[data-v="5"]{ --c1:var(--plum); --c2:var(--brass); }
+.card[data-v="6"]{ --c1:var(--moss); --c2:var(--rose); }
+
+.card{opacity:0;transform:translateY(24px)}
+
+.cursor{position:fixed;top:0;left:0;width:20px;height:20px;border-radius:50%;border:1.2px solid var(--ink);pointer-events:none;z-index:200;transform:translate(-50%,-50%);mix-blend-mode:difference}
+
+footer{display:grid;grid-template-columns:1fr 1fr 1fr;align-items:center;padding:24px clamp(32px,4vw,64px);border-top:1px solid rgba(27,24,21,0.15);font-family:'JetBrains Mono',monospace;font-size:11px;letter-spacing:0.24em;text-transform:uppercase;color:var(--ink-dim)}
+footer .c{text-align:center;font-family:'Fraunces',serif;font-style:italic;color:var(--ink);letter-spacing:0;font-variation-settings:"opsz" 16,"WONK" 1}
+footer .r{text-align:right}
+footer a{color:var(--ink-dim);text-decoration:none;transition:color 0.2s}
+footer a:hover{color:var(--brick)}
+</style>
+</head>
+<body>
+<div class="grain"></div>
+<div class="cursor"></div>
+
+<header>
+  <div class="l"><b>neil</b> · vibe demo</div>
+  <div class="c">an open studio</div>
+  <div class="r">
+    <a href="#contact">contact</a>
+  </div>
+</header>
+
+<section class="hero">
+  <div class="eyebrow">vol. i · spring 2026 · open studio</div>
+  <h1>Neil's <em>vibe</em> demo.</h1>
+  <div class="row">
+    <div class="sub">A small shelf of experiments and products I'm making in public — some tools, some sketches, some things that almost work. Hover to feel them, click to open.</div>
+    <div class="kpi">
+      <div class="k"><b>06</b><span>on shelf</span></div>
+      <div class="k"><b>02</b><span>tools</span></div>
+      <div class="k"><b>04</b><span>experiments</span></div>
+    </div>
+  </div>
+</section>
+
+<section class="filters" id="filters">
+  <span class="label">filter</span>
+  <button class="on" data-f="all">all · 06</button>
+  <button data-f="product">products</button>
+  <button data-f="experiment">experiments</button>
+  <button data-f="tool">tools</button>
+</section>
+
+<section class="grid" id="grid"></section>
+
+<footer id="contact">
+  <div class="l">built in public · 2026</div>
+  <div class="c">— neil · yw6472@nyu.edu —</div>
+  <div class="r"><a href="mailto:yw6472@nyu.edu">say hi</a></div>
+</footer>
+
+<script>
+const ITEMS = [
+  {
+    slug:'frontend-effects-lab', v:1, kind:'experiment',
+    name:'Frontend <em>Effects</em> Lab',
+    sub:'Nine screen-recordable web pages, made to feel like pages of a magazine.',
+    href:'./effects-lab/index.html',
+    art: `<rect width='300' height='300' fill='var(--c2)'/>
+          <circle cx='95' cy='150' r='52' fill='var(--c1)'/>
+          <circle cx='205' cy='150' r='52' fill='var(--c1)'/>
+          <path d='M 95 150 Q 150 95 205 150' stroke='var(--c1)' stroke-width='3' fill='none'/>
+          <text x='150' y='70' font-family='JetBrains Mono' font-size='11' letter-spacing='3' text-anchor='middle' fill='var(--c3)' opacity='0.9'>09 · EFFECTS</text>`
+  },
+  {
+    slug:'two-min-app', v:2, kind:'product',
+    name:'2 Min <em>App</em>',
+    sub:'Type a prompt, get a desktop app in two minutes. Electron + LLM + pre-baked templates.',
+    href:'#',
+    art: `<rect width='300' height='300' fill='var(--c2)'/>
+          <rect x='60' y='78' width='180' height='130' rx='10' fill='var(--c1)'/>
+          <rect x='76' y='94' width='148' height='100' rx='4' fill='var(--c3)'/>
+          <text x='150' y='150' font-family='JetBrains Mono' font-size='14' text-anchor='middle' fill='var(--c1)'>2 min</text>
+          <rect x='120' y='210' width='60' height='10' fill='var(--c1)'/>
+          <rect x='100' y='222' width='100' height='6' rx='2' fill='var(--c1)'/>`
+  },
+  {
+    slug:'vtuber-web', v:3, kind:'experiment',
+    name:'VTuber <em>Story</em>',
+    sub:'A 178-node branching visual novel engine with a fan-interest graph and live runtime.',
+    href:'#',
+    art: `<rect width='300' height='300' fill='var(--c2)'/>
+          <circle cx='150' cy='130' r='44' fill='var(--c1)'/>
+          <circle cx='138' cy='125' r='5' fill='var(--c3)'/>
+          <circle cx='162' cy='125' r='5' fill='var(--c3)'/>
+          <path d='M 136 148 Q 150 158 164 148' stroke='var(--c3)' stroke-width='2.5' fill='none' stroke-linecap='round'/>
+          <g fill='var(--c1)' opacity='0.6'>
+            <circle cx='70' cy='240' r='6'/><circle cx='110' cy='250' r='4'/>
+            <circle cx='150' cy='240' r='7'/><circle cx='190' cy='250' r='4'/>
+            <circle cx='230' cy='240' r='6'/>
+          </g>
+          <g stroke='var(--c1)' stroke-width='1' opacity='0.5' fill='none'>
+            <line x1='150' y1='180' x2='70' y2='240'/>
+            <line x1='150' y1='180' x2='110' y2='250'/>
+            <line x1='150' y1='180' x2='150' y2='240'/>
+            <line x1='150' y1='180' x2='190' y2='250'/>
+            <line x1='150' y1='180' x2='230' y2='240'/>
+          </g>`
+  },
+  {
+    slug:'agent-studio', v:4, kind:'experiment',
+    name:'Agent <em>Studio</em>',
+    sub:'A side-view office where AI agents walk to terminals and write code in front of you.',
+    href:'#',
+    art: `<rect width='300' height='300' fill='var(--c2)'/>
+          <rect x='0' y='210' width='300' height='90' fill='var(--c1)' opacity='0.5'/>
+          <rect x='40' y='140' width='70' height='100' fill='var(--c1)'/>
+          <rect x='120' y='120' width='70' height='120' fill='var(--c3)'/>
+          <rect x='200' y='150' width='60' height='90' fill='var(--c1)'/>
+          <rect x='130' y='140' width='50' height='36' fill='var(--c2)'/>
+          <text x='155' y='164' font-family='JetBrains Mono' font-size='11' text-anchor='middle' fill='var(--c3)'>$_</text>`
+  },
+  {
+    slug:'skill-sandbox', v:5, kind:'tool',
+    name:'Skill <em>Sandbox</em>',
+    sub:'A/B test Claude skills against their MCP equivalents. Same prompt, two pipelines, one winner.',
+    href:'#',
+    art: `<rect width='300' height='300' fill='var(--c2)'/>
+          <rect x='50' y='100' width='90' height='130' rx='6' fill='var(--c1)'/>
+          <rect x='160' y='100' width='90' height='130' rx='6' fill='var(--c3)'/>
+          <text x='95' y='175' font-family='Fraunces' font-style='italic' font-weight='700' font-size='40' text-anchor='middle' fill='var(--c3)'>A</text>
+          <text x='205' y='175' font-family='Fraunces' font-style='italic' font-weight='700' font-size='40' text-anchor='middle' fill='var(--c1)'>B</text>
+          <line x1='150' y1='90' x2='150' y2='240' stroke='var(--c3)' stroke-width='1' stroke-dasharray='3 3' opacity='0.6'/>`
+  },
+  {
+    slug:'float', v:6, kind:'experiment',
+    name:'Float <em>Prototype</em>',
+    sub:'A native Swift floating-window desktop companion that watches your screen and assists.',
+    href:'#',
+    art: `<rect width='300' height='300' fill='var(--c2)'/>
+          <rect x='40' y='50' width='220' height='160' rx='8' fill='var(--c1)' opacity='0.45'/>
+          <rect x='100' y='100' width='120' height='80' rx='16' fill='var(--c3)'/>
+          <circle cx='116' cy='122' r='4' fill='var(--c1)'/>
+          <circle cx='132' cy='122' r='4' fill='var(--c1)'/>
+          <circle cx='148' cy='122' r='4' fill='var(--c1)'/>
+          <rect x='112' y='138' width='96' height='28' rx='4' fill='var(--c1)' opacity='0.25'/>`
+  },
+];
+
+const gridEl = document.getElementById('grid');
+const filtersEl = document.getElementById('filters');
+
+function render(filter){
+  gridEl.innerHTML = '';
+  ITEMS.forEach((it, i) => {
+    if(filter && filter !== 'all' && it.kind !== filter) return;
+    const a = document.createElement('a');
+    a.className = 'card';
+    a.dataset.v = it.v;
+    a.href = it.href;
+    a.innerHTML = `
+      <div class="img">
+        <svg viewBox="0 0 300 300" preserveAspectRatio="xMidYMid slice">${it.art}</svg>
+        <div class="grainIn"></div>
+        <div class="shine"></div>
+        <div class="tag">${it.kind}</div>
+        <div class="idx">${String(i+1).padStart(2,'0')}</div>
+      </div>
+      <div class="meta">
+        <div class="name">${it.name}</div>
+        <div class="sub">${it.sub}</div>
+        <div class="row2">
+          <span class="kind">${it.slug}</span>
+          <span class="cta">open ↗</span>
+        </div>
+      </div>
+    `;
+    gridEl.appendChild(a);
+  });
+  bindCardInteractions();
+  revealCards();
+}
+
+/* 3D tilt + shimmer per card */
+function bindCardInteractions(){
+  document.querySelectorAll('.card').forEach(card => {
+    card.addEventListener('pointermove', e => {
+      const r = card.getBoundingClientRect();
+      const nx = (e.clientX - r.left)/r.width - 0.5;
+      const ny = (e.clientY - r.top )/r.height - 0.5;
+      card.style.transform = `perspective(1000px) rotateY(${nx*12}deg) rotateX(${-ny*12}deg) translateZ(30px)`;
+      card.style.setProperty('--mx', ((nx+0.5)*100).toFixed(1)+'%');
+      card.style.setProperty('--my', ((ny+0.5)*100).toFixed(1)+'%');
+    });
+    card.addEventListener('pointerleave', ()=>{
+      card.style.transform = 'perspective(1000px) rotateY(0) rotateX(0) translateZ(0)';
+    });
+  });
+}
+
+/* simple stagger reveal */
+function revealCards(){
+  const cards = document.querySelectorAll('.card');
+  cards.forEach((c, i) => {
+    setTimeout(()=>{
+      c.style.transition = 'opacity 0.9s cubic-bezier(0.2,0.7,0.2,1), transform 0.9s cubic-bezier(0.2,0.7,0.2,1)';
+      c.style.opacity = '1';
+      c.style.transform = 'translateY(0)';
+    }, 80 + i*70);
+  });
+}
+
+/* filter clicks */
+filtersEl.addEventListener('click', e => {
+  const btn = e.target.closest('button[data-f]');
+  if(!btn) return;
+  [...filtersEl.querySelectorAll('button')].forEach(b => b.classList.toggle('on', b === btn));
+  render(btn.dataset.f);
+});
+
+render('all');
+
+/* cursor */
+const cursorEl = document.querySelector('.cursor');
+let cx=0, cy=0, ctx=window.innerWidth/2, cty=window.innerHeight/2;
+window.addEventListener('pointermove', e => { ctx=e.clientX; cty=e.clientY; });
+(function tick(){
+  cx += (ctx-cx)*0.22; cy += (cty-cy)*0.22;
+  cursorEl.style.transform = `translate(${cx-10}px,${cy-10}px)`;
+  requestAnimationFrame(tick);
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,281 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>frontend effects lab · 12 · particle nebula</title>
+<!--
+  参考: codepen.io/kasunshana/pen/zxvWEWG (Interactive Particle Nebula),
+        codepen.io/VoXelo/pen/PwYJdVG (Interactive Particle Sphere ShaderMaterial)
+  技术: three.js v0.160 (importmap) + BufferGeometry Points 30k, 自定义 vertex/fragment shader,
+        EffectComposer + UnrealBloomPass 发光, 相机缓慢漂移,
+        鼠标 raycast 投到 z=0 平面 → 推斥粒子近场, requestAnimationFrame 节流.
+  观感: 深黑宇宙底, 30k 粒子盘状分布, violet→magenta→cyan 按半径渐变, bloom 眩光包裹,
+        鼠标一划粒子让路并拖尾, 录屏很出.
+-->
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<style>
+:root{
+  --bg-0:#050308; --bg-1:#0a0612; --fg-0:#f5f3ff; --fg-muted:#a1a1aa;
+  --cyan:#22d3ee; --magenta:#ec4899; --violet:#a855f7;
+}
+@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300..700&family=JetBrains+Mono:wght@400;600&display=swap');
+*{margin:0;padding:0;box-sizing:border-box}
+html,body{width:100%;height:100%;overflow:hidden;background:var(--bg-0);color:var(--fg-0);font-family:'Space Grotesk',system-ui,sans-serif;cursor:none}
+canvas{position:fixed;inset:0;display:block}
+.vignette{position:fixed;inset:0;pointer-events:none;background:radial-gradient(ellipse at center, transparent 45%, rgba(5,3,8,0.85) 100%);z-index:2}
+.ui{position:fixed;inset:0;pointer-events:none;display:flex;flex-direction:column;justify-content:space-between;padding:32px 40px;z-index:5;mix-blend-mode:difference}
+.row{display:flex;justify-content:space-between;align-items:flex-end;gap:24px;font-family:'JetBrains Mono',monospace;font-size:12px;letter-spacing:0.08em;text-transform:uppercase;color:var(--fg-0);opacity:0.82}
+.title{font-size:11px;letter-spacing:0.22em}
+.hero{position:fixed;left:40px;bottom:96px;z-index:4;color:var(--fg-0);pointer-events:none;mix-blend-mode:difference}
+.hero .eyebrow{font-family:'JetBrains Mono',monospace;font-size:11px;letter-spacing:0.22em;opacity:0.62;text-transform:uppercase;margin-bottom:14px}
+.hero h1{font-family:'Space Grotesk',sans-serif;font-weight:300;font-size:clamp(48px, 7.4vw, 120px);line-height:0.92;letter-spacing:-0.03em;max-width:700px}
+.hero h1 em{font-style:italic;font-weight:500;color:#f5f3ff}
+.tagline{margin-top:18px;max-width:380px;font-size:13px;letter-spacing:0.02em;color:var(--fg-muted);opacity:0.88;line-height:1.55}
+.cursor{position:fixed;top:0;left:0;width:28px;height:28px;border-radius:50%;background:#fff;pointer-events:none;z-index:10;mix-blend-mode:difference;transform:translate(-50%,-50%)}
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div class="vignette"></div>
+<div class="ui">
+  <div class="row">
+    <div class="title">frontend effects lab · 2026</div>
+    <div class="title">[ 02 / 10 ]</div>
+  </div>
+  <div class="row">
+    <div class="title">nebula · 30k points · additive bloom</div>
+    <div class="title">v0.1 · 17 Apr 2026</div>
+  </div>
+</div>
+<div class="hero">
+  <div class="eyebrow">no. 12 · particle nebula</div>
+  <h1>a soft machine<br>made of <em>light</em></h1>
+  <div class="tagline">Move through the cloud — each particle lerps away from the cursor and trails back, bloomed into neon fog.</div>
+</div>
+<div class="cursor"></div>
+
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+    "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+  }
+}
+</script>
+<script type="module">
+import * as THREE from 'three';
+import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
+import { RenderPass }     from 'three/addons/postprocessing/RenderPass.js';
+import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
+import { OutputPass }     from 'three/addons/postprocessing/OutputPass.js';
+
+const canvas = document.getElementById('c');
+const renderer = new THREE.WebGLRenderer({ canvas, antialias:false, alpha:false });
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+renderer.setSize(window.innerWidth, window.innerHeight);
+renderer.setClearColor(0x050308, 1);
+
+const scene = new THREE.Scene();
+const camera = new THREE.PerspectiveCamera(52, window.innerWidth/window.innerHeight, 0.1, 100);
+camera.position.set(0, 0, 5.2);
+
+/* ---------- particles ---------- */
+const COUNT = 30000;
+const positions = new Float32Array(COUNT*3);
+const basePos   = new Float32Array(COUNT*3);
+const colors    = new Float32Array(COUNT*3);
+const sizes     = new Float32Array(COUNT);
+const seeds     = new Float32Array(COUNT);
+
+const cCyan    = new THREE.Color(0x22d3ee);
+const cMagenta = new THREE.Color(0xec4899);
+const cViolet  = new THREE.Color(0xa855f7);
+const cGold    = new THREE.Color(0xfbbf24);
+const tmp = new THREE.Color();
+
+for(let i=0;i<COUNT;i++){
+  /* disk + noise: radius bias toward middle, y compressed */
+  const u = Math.random();
+  const r = 0.3 + Math.pow(u, 0.55) * 2.4;   /* 0.3..2.7 */
+  const theta = Math.random() * Math.PI * 2;
+  const yBias = (Math.random()-0.5);
+  const yFlat = Math.pow(Math.abs(yBias), 1.4) * Math.sign(yBias) * 0.6;
+  /* add turbulent jitter */
+  const jx = (Math.random()-0.5)*0.35;
+  const jy = (Math.random()-0.5)*0.25;
+  const jz = (Math.random()-0.5)*0.35;
+  const x = Math.cos(theta)*r + jx;
+  const y = yFlat + jy;
+  const z = Math.sin(theta)*r + jz;
+  positions[i*3]=basePos[i*3]=x;
+  positions[i*3+1]=basePos[i*3+1]=y;
+  positions[i*3+2]=basePos[i*3+2]=z;
+
+  /* color by radius: inner violet → mid magenta → outer cyan, sparse gold */
+  const t1 = THREE.MathUtils.smoothstep(r, 0.3, 1.4);
+  const t2 = THREE.MathUtils.smoothstep(r, 1.4, 2.7);
+  tmp.copy(cViolet).lerp(cMagenta, t1);
+  tmp.lerp(cCyan, t2);
+  if(Math.random()<0.015){ tmp.lerp(cGold, 0.85); }  /* 1.5% 金色点缀 */
+  colors[i*3]=tmp.r; colors[i*3+1]=tmp.g; colors[i*3+2]=tmp.b;
+
+  sizes[i] = 0.9 + Math.random()*2.6;
+  seeds[i] = Math.random();
+}
+
+const geom = new THREE.BufferGeometry();
+geom.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+geom.setAttribute('aBase',    new THREE.BufferAttribute(basePos, 3));
+geom.setAttribute('aColor',   new THREE.BufferAttribute(colors, 3));
+geom.setAttribute('aSize',    new THREE.BufferAttribute(sizes, 1));
+geom.setAttribute('aSeed',    new THREE.BufferAttribute(seeds, 1));
+
+const mat = new THREE.ShaderMaterial({
+  uniforms:{
+    uTime:   { value: 0 },
+    uMouse:  { value: new THREE.Vector3(0,0,0) },
+    uPushR:  { value: 0.75 },
+    uPixel:  { value: renderer.getPixelRatio() * window.innerHeight }
+  },
+  vertexShader:`
+    attribute vec3 aBase;
+    attribute vec3 aColor;
+    attribute float aSize;
+    attribute float aSeed;
+    uniform float uTime;
+    uniform vec3  uMouse;
+    uniform float uPushR;
+    uniform float uPixel;
+    varying vec3 vColor;
+    varying float vGlow;
+    void main(){
+      vec3 p = aBase;
+      /* slow rotation around y by seed */
+      float a = uTime * (0.06 + aSeed*0.12);
+      float ca = cos(a), sa = sin(a);
+      p.xz = mat2(ca,-sa,sa,ca) * p.xz;
+      /* tiny breathing */
+      p += normalize(aBase+vec3(0.001)) * sin(uTime*0.6 + aSeed*6.28) * 0.04;
+      /* mouse push */
+      vec3 toP = p - uMouse;
+      float d  = length(toP);
+      float infl = exp(-d*d / (uPushR*uPushR));
+      p += normalize(toP + 0.0001) * infl * 0.55;
+
+      vec4 mv = modelViewMatrix * vec4(p,1.0);
+      gl_Position = projectionMatrix * mv;
+      float size = aSize * (1.0 + infl*1.8);
+      gl_PointSize = size * (uPixel / -mv.z) * 0.0018;
+      vColor = aColor;
+      vGlow  = 0.75 + infl*1.5;
+    }`,
+  fragmentShader:`
+    precision highp float;
+    varying vec3 vColor;
+    varying float vGlow;
+    void main(){
+      vec2 uv = gl_PointCoord - 0.5;
+      float d = length(uv);
+      /* soft sphere with halo */
+      float core = smoothstep(0.5, 0.0, d);
+      float halo = exp(-d*5.5) * 0.55;
+      float a = core + halo;
+      if(a < 0.01) discard;
+      vec3 col = vColor * vGlow;
+      gl_FragColor = vec4(col * a, a);
+    }`,
+  transparent: true,
+  depthWrite: false,
+  blending: THREE.AdditiveBlending
+});
+
+const points = new THREE.Points(geom, mat);
+scene.add(points);
+
+/* a faint inner glow sprite for center mass */
+const coreGeo = new THREE.SphereGeometry(0.18, 24, 24);
+const coreMat = new THREE.ShaderMaterial({
+  uniforms:{ uTime:{value:0} },
+  vertexShader:`varying vec3 vN; varying vec3 vP; void main(){ vN=normalize(normalMatrix*normal); vP=(modelViewMatrix*vec4(position,1.)).xyz; gl_Position=projectionMatrix*vec4(vP,1.);}`,
+  fragmentShader:`precision highp float; varying vec3 vN; varying vec3 vP; uniform float uTime;
+    void main(){
+      vec3 V=normalize(-vP);
+      float f = 1.0 - max(dot(V,vN), 0.0);
+      f = pow(f, 2.0);
+      vec3 col = mix(vec3(0.93,0.28,0.60), vec3(0.66,0.33,0.97), 0.5+0.5*sin(uTime*0.3));
+      gl_FragColor = vec4(col*f, f*0.9);
+    }`,
+  transparent:true, depthWrite:false, blending:THREE.AdditiveBlending
+});
+const core = new THREE.Mesh(coreGeo, coreMat);
+scene.add(core);
+
+/* ---------- postprocessing ---------- */
+const cmp = new EffectComposer(renderer);
+cmp.addPass(new RenderPass(scene, camera));
+const bloom = new UnrealBloomPass(
+  new THREE.Vector2(window.innerWidth, window.innerHeight),
+  0.95, 0.82, 0.12
+);
+cmp.addPass(bloom);
+cmp.addPass(new OutputPass());
+
+/* ---------- interaction ---------- */
+const ndc = new THREE.Vector2(0,0);
+const ray = new THREE.Raycaster();
+const plane = new THREE.Plane(new THREE.Vector3(0,0,1), 0);
+const mWorld = new THREE.Vector3();
+const mTarget = new THREE.Vector3();
+
+window.addEventListener('pointermove', e => {
+  ndc.x = (e.clientX/window.innerWidth)*2 - 1;
+  ndc.y = -(e.clientY/window.innerHeight)*2 + 1;
+  ray.setFromCamera(ndc, camera);
+  ray.ray.intersectPlane(plane, mTarget);
+});
+
+const cursorEl = document.querySelector('.cursor');
+let cx=window.innerWidth/2, cy=window.innerHeight/2;
+window.addEventListener('pointermove', e => { /* separate */ });
+
+function onResize(){
+  const w = window.innerWidth, h = window.innerHeight;
+  renderer.setSize(w, h);
+  cmp.setSize(w, h);
+  camera.aspect = w/h;
+  camera.updateProjectionMatrix();
+  mat.uniforms.uPixel.value = renderer.getPixelRatio() * h;
+  bloom.setSize(w, h);
+}
+window.addEventListener('resize', onResize);
+
+/* cursor DOM follower */
+let lx=cx, ly=cy;
+window.addEventListener('pointermove', e => { cx=e.clientX; cy=e.clientY; });
+
+/* ---------- render loop ---------- */
+const t0 = performance.now();
+function frame(){
+  const t = (performance.now()-t0)/1000;
+  mat.uniforms.uTime.value = t;
+  coreMat.uniforms.uTime.value = t;
+  mWorld.lerp(mTarget, 0.09);
+  mat.uniforms.uMouse.value.copy(mWorld);
+  core.position.lerp(mTarget, 0.04);
+
+  /* slow camera orbit */
+  camera.position.x = Math.sin(t*0.08) * 0.6;
+  camera.position.y = Math.sin(t*0.05) * 0.3;
+  camera.lookAt(0,0,0);
+
+  lx += (cx-lx)*0.18;
+  ly += (cy-ly)*0.18;
+  cursorEl.style.transform = `translate(${lx-14}px,${ly-14}px)`;
+
+  cmp.render();
+  requestAnimationFrame(frame);
+}
+frame();
+</script>
+</body>
+</html>

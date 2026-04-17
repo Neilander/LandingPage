@@ -1,0 +1,597 @@
+<!--
+  Task: Fluid Color Mixer — a functional color picker where you mix real paint blobs on a canvas.
+  Drop drops of color, drag them around with the mouse/touch, watch them physically blend
+  via a fluid-simulation-style pigment diffusion on a canvas. Click/tap any spot on the
+  canvas to sample that exact mixed color — it becomes your picked color (hex/RGB copied
+  on click). Save swatches to a palette.
+
+  Visual effect: a pigment-diffusion simulation on a 2D grid (RGB densities diffuse and
+  advect each frame via a Gauss-Seidel-ish blur), rendered as a full-bleed canvas.
+
+  WHY the effect IS the function: the pigment field on the canvas IS the palette you are
+  sampling from. There is no separate "result" box backed by a math formula — the color
+  you pick is literally the pixel under your cursor after the simulation has blended the
+  dropped pigments. Delete the fluid effect and there is nothing to pick: no blending,
+  no gradient, no intermediate hues — just the handful of primary drops you dropped.
+  The mixing IS the app.
+-->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+<title>Fluid Color Mixer</title>
+<style>
+  :root{
+    --bg:#0b0c10;
+    --panel:rgba(18,20,26,0.78);
+    --panel-border:rgba(255,255,255,0.08);
+    --ink:#e7e9ee;
+    --muted:#8b8f9a;
+    --accent:#ffd166;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;height:100%;background:var(--bg);color:var(--ink);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Inter,system-ui,sans-serif;
+    overflow:hidden;-webkit-user-select:none;user-select:none;}
+  #stage{position:fixed;inset:0;}
+  canvas#mix{position:absolute;inset:0;width:100%;height:100%;display:block;cursor:crosshair;
+    image-rendering:auto;}
+  /* top bar */
+  .topbar{position:absolute;top:16px;left:16px;right:16px;display:flex;gap:12px;
+    align-items:center;justify-content:space-between;pointer-events:none;z-index:10;}
+  .brand{pointer-events:auto;display:flex;align-items:center;gap:10px;
+    background:var(--panel);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);
+    border:1px solid var(--panel-border);border-radius:12px;padding:8px 14px;}
+  .brand .dot{width:10px;height:10px;border-radius:50%;
+    background:conic-gradient(from 0deg,#ff4d6d,#ffd166,#06d6a0,#118ab2,#8338ec,#ff4d6d);}
+  .brand h1{font-size:14px;font-weight:600;margin:0;letter-spacing:0.02em;}
+  .hint{pointer-events:auto;font-size:12px;color:var(--muted);
+    background:var(--panel);border:1px solid var(--panel-border);
+    border-radius:10px;padding:8px 12px;backdrop-filter:blur(10px);
+    -webkit-backdrop-filter:blur(10px);}
+
+  /* paint palette */
+  .paints{position:absolute;left:16px;top:50%;transform:translateY(-50%);
+    display:flex;flex-direction:column;gap:10px;z-index:10;
+    background:var(--panel);padding:12px;border-radius:14px;
+    border:1px solid var(--panel-border);backdrop-filter:blur(12px);
+    -webkit-backdrop-filter:blur(12px);}
+  .paints .swatch{width:36px;height:36px;border-radius:50%;cursor:grab;
+    border:2px solid rgba(255,255,255,0.18);
+    box-shadow:0 4px 14px rgba(0,0,0,0.45), inset 0 2px 6px rgba(255,255,255,0.18);
+    transition:transform .15s ease, border-color .15s ease;}
+  .paints .swatch:hover{transform:scale(1.08);}
+  .paints .swatch.active{border-color:var(--accent);transform:scale(1.12);}
+  .paints .brush-size{display:flex;flex-direction:column;align-items:center;gap:6px;
+    margin-top:6px;padding-top:10px;border-top:1px dashed rgba(255,255,255,0.08);}
+  .paints .brush-size label{font-size:10px;color:var(--muted);}
+  .paints input[type=range]{-webkit-appearance:none;appearance:none;width:40px;height:80px;
+    writing-mode:vertical-lr;direction:rtl;background:transparent;}
+
+  /* bottom sampler + swatches */
+  .bottombar{position:absolute;left:16px;right:16px;bottom:16px;
+    display:flex;gap:12px;align-items:stretch;z-index:10;}
+  .picked{background:var(--panel);border:1px solid var(--panel-border);
+    border-radius:14px;padding:10px 14px;backdrop-filter:blur(12px);
+    -webkit-backdrop-filter:blur(12px);display:flex;gap:12px;align-items:center;
+    min-width:260px;}
+  .picked .pchip{width:44px;height:44px;border-radius:10px;
+    border:2px solid rgba(255,255,255,0.2);background:#222;
+    box-shadow:0 4px 12px rgba(0,0,0,0.4);}
+  .picked .pinfo{display:flex;flex-direction:column;gap:2px;}
+  .picked .phex{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:15px;
+    letter-spacing:0.05em;color:var(--ink);font-weight:600;}
+  .picked .prgb{font-size:11px;color:var(--muted);font-family:ui-monospace,monospace;}
+  .picked .pcopy{font-size:10px;color:var(--accent);margin-top:2px;
+    opacity:0;transition:opacity .25s ease;}
+  .picked.copied .pcopy{opacity:1;}
+
+  .palette{flex:1;background:var(--panel);border:1px solid var(--panel-border);
+    border-radius:14px;padding:10px 12px;backdrop-filter:blur(12px);
+    -webkit-backdrop-filter:blur(12px);display:flex;gap:8px;align-items:center;
+    overflow-x:auto;}
+  .palette .plabel{font-size:11px;color:var(--muted);white-space:nowrap;margin-right:4px;}
+  .palette .saved{width:32px;height:32px;border-radius:8px;flex-shrink:0;
+    border:2px solid rgba(255,255,255,0.14);cursor:pointer;position:relative;
+    transition:transform .15s ease;}
+  .palette .saved:hover{transform:scale(1.1);}
+  .palette .saved::after{content:"×";position:absolute;top:-6px;right:-6px;
+    width:16px;height:16px;background:#111;color:#fff;font-size:11px;line-height:15px;
+    border-radius:50%;text-align:center;opacity:0;transition:opacity .15s ease;
+    border:1px solid rgba(255,255,255,0.3);}
+  .palette .saved:hover::after{opacity:1;}
+  .palette .saved .hexlabel{position:absolute;top:calc(100% + 4px);left:50%;
+    transform:translateX(-50%);font-family:ui-monospace,monospace;font-size:9px;
+    color:var(--muted);white-space:nowrap;pointer-events:none;letter-spacing:0.04em;}
+  .palette .empty{font-size:11px;color:var(--muted);font-style:italic;}
+  .palette .addbtn{margin-left:auto;background:var(--accent);color:#111;font-weight:700;
+    border:none;border-radius:8px;padding:6px 10px;font-size:11px;cursor:pointer;
+    flex-shrink:0;letter-spacing:0.05em;}
+  .palette .clearbtn{background:transparent;border:1px solid var(--panel-border);
+    color:var(--muted);border-radius:8px;padding:6px 10px;font-size:11px;cursor:pointer;
+    flex-shrink:0;}
+  .palette .clearbtn:hover{color:var(--ink);}
+
+  /* instruction overlay */
+  .intro{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
+    background:rgba(11,12,16,0.72);z-index:20;backdrop-filter:blur(8px);
+    -webkit-backdrop-filter:blur(8px);transition:opacity .4s ease;}
+  .intro.hidden{opacity:0;pointer-events:none;}
+  .intro .card{max-width:420px;padding:24px 28px;background:var(--panel);
+    border:1px solid var(--panel-border);border-radius:16px;text-align:center;}
+  .intro h2{margin:0 0 8px;font-size:20px;letter-spacing:0.02em;}
+  .intro p{margin:6px 0;font-size:13px;color:var(--muted);line-height:1.6;}
+  .intro ol{text-align:left;font-size:13px;color:var(--ink);line-height:1.7;
+    padding-left:22px;margin:12px 0;}
+  .intro button{margin-top:10px;background:var(--accent);color:#111;font-weight:700;
+    border:none;border-radius:10px;padding:10px 20px;font-size:13px;cursor:pointer;
+    letter-spacing:0.04em;}
+
+  @media (max-width:640px){
+    .paints .swatch{width:30px;height:30px;}
+    .picked{min-width:auto;padding:8px 10px;}
+    .picked .pchip{width:36px;height:36px;}
+  }
+</style>
+</head>
+<body>
+<div id="stage">
+  <canvas id="mix"></canvas>
+
+  <div class="topbar">
+    <div class="brand">
+      <div class="dot"></div>
+      <h1>Fluid Color Mixer</h1>
+    </div>
+    <div class="hint">drag to paint &middot; click a spot to sample</div>
+  </div>
+
+  <div class="paints" id="paints">
+    <!-- paints injected by JS -->
+    <div class="brush-size">
+      <label>size</label>
+      <input type="range" id="brushsize" min="4" max="30" value="12" />
+    </div>
+  </div>
+
+  <div class="bottombar">
+    <div class="picked" id="picked">
+      <div class="pchip" id="pchip"></div>
+      <div class="pinfo">
+        <div class="phex" id="phex">—</div>
+        <div class="prgb" id="prgb">click the canvas to sample</div>
+        <div class="pcopy" id="pcopy">hex copied to clipboard</div>
+      </div>
+    </div>
+    <div class="palette" id="palette">
+      <span class="plabel">palette</span>
+      <span class="empty" id="palette-empty">click the canvas — samples auto-save here</span>
+      <button class="clearbtn" id="clearpal">clear palette</button>
+      <button class="clearbtn" id="clearall">clear canvas</button>
+    </div>
+  </div>
+
+  <div class="intro" id="intro">
+    <div class="card">
+      <h2>Mix real paint. Pick real colors.</h2>
+      <p>This is not a gradient picker. It is a pigment-diffusion simulation.</p>
+      <ol>
+        <li>Pick a paint from the left rail.</li>
+        <li>Drag on the canvas to drop pigment. Colors blend by real diffusion.</li>
+        <li>Click any spot to sample — it auto-saves to your palette and copies the hex.</li>
+        <li>Hover a swatch to see its hex; click × to remove.</li>
+      </ol>
+      <button id="go">Start mixing</button>
+    </div>
+  </div>
+</div>
+
+<script>
+(() => {
+  "use strict";
+
+  /* -------- paint palette (primary pigments you drop) -------- */
+  const PAINTS = [
+    { name:"crimson",    rgb:[220, 38, 68]   },
+    { name:"tangerine",  rgb:[255,140, 40]   },
+    { name:"sun",        rgb:[255,214, 80]   },
+    { name:"leaf",       rgb:[ 70,190,100]   },
+    { name:"teal",       rgb:[ 30,170,190]   },
+    { name:"cobalt",     rgb:[ 45, 85,220]   },
+    { name:"violet",     rgb:[150, 80,220]   },
+    { name:"magenta",    rgb:[230, 60,170]   },
+    { name:"ink",        rgb:[ 18, 20, 28]   },
+    { name:"chalk",      rgb:[245,245,240]   },
+  ];
+
+  /* -------- simulation grid -------- */
+  // Low-resolution RGB density field; rendered upscaled for performance.
+  // We use diffusion via a simple neighbour blur each frame, which gives
+  // a soft "paint soaking into paper" look while keeping mass roughly conserved.
+  const GRID_W = 180; // grid columns
+  let GRID_H = 120;   // recalculated to match aspect
+  let r, g, b;        // density buffers
+  let r2, g2, b2;     // swap buffers
+  let bgR = 250, bgG = 248, bgB = 242; // "paper" colour
+
+  /* -------- DOM -------- */
+  const canvas = document.getElementById("mix");
+  const ctx = canvas.getContext("2d", { alpha:false });
+  const paintsEl = document.getElementById("paints");
+  const brushSizeEl = document.getElementById("brushsize");
+  const pchip = document.getElementById("pchip");
+  const phex = document.getElementById("phex");
+  const prgb = document.getElementById("prgb");
+  const pickedEl = document.getElementById("picked");
+  const paletteEl = document.getElementById("palette");
+  const paletteEmpty = document.getElementById("palette-empty");
+  const clearPalBtn = document.getElementById("clearpal");
+  const clearBtn = document.getElementById("clearall");
+  const intro = document.getElementById("intro");
+  const goBtn = document.getElementById("go");
+
+  let activePaint = PAINTS[5]; // cobalt default
+  let brushRadius = parseInt(brushSizeEl.value, 10);
+
+  /* -------- build paint rail -------- */
+  const swatchEls = [];
+  PAINTS.forEach((p, i) => {
+    const el = document.createElement("div");
+    el.className = "swatch";
+    el.style.background = `rgb(${p.rgb.join(",")})`;
+    el.title = p.name;
+    if (p === activePaint) el.classList.add("active");
+    el.addEventListener("click", () => {
+      activePaint = p;
+      swatchEls.forEach(s => s.classList.remove("active"));
+      el.classList.add("active");
+    });
+    paintsEl.insertBefore(el, paintsEl.firstChild);
+    swatchEls.push(el);
+  });
+  // reorder so first paint is on top
+  [...paintsEl.querySelectorAll(".swatch")].reverse().forEach(n => paintsEl.insertBefore(n, paintsEl.firstChild));
+
+  brushSizeEl.addEventListener("input", () => {
+    brushRadius = parseInt(brushSizeEl.value, 10);
+  });
+
+  /* -------- sizing -------- */
+  let dpr = Math.min(window.devicePixelRatio || 1, 2);
+  let cssW = 0, cssH = 0;
+  function resize(){
+    cssW = window.innerWidth;
+    cssH = window.innerHeight;
+    canvas.width  = Math.floor(cssW * dpr);
+    canvas.height = Math.floor(cssH * dpr);
+    // recompute grid height from aspect
+    GRID_H = Math.max(40, Math.round(GRID_W * (cssH / cssW)));
+    allocGrid();
+  }
+  function allocGrid(){
+    const N = GRID_W * GRID_H;
+    r  = new Float32Array(N);
+    g  = new Float32Array(N);
+    b  = new Float32Array(N);
+    r2 = new Float32Array(N);
+    g2 = new Float32Array(N);
+    b2 = new Float32Array(N);
+  }
+  window.addEventListener("resize", resize);
+
+  /* -------- pointer drawing -------- */
+  let pointerDown = false;
+  let lastPX = null, lastPY = null;
+  let movedSinceDown = 0;
+
+  function canvasToGrid(px, py){
+    const gx = Math.floor(px / cssW * GRID_W);
+    const gy = Math.floor(py / cssH * GRID_H);
+    return [gx, gy];
+  }
+
+  function stampPigment(gx, gy, radius, paint){
+    const r2sq = radius * radius;
+    const x0 = Math.max(0, gx - radius - 1);
+    const x1 = Math.min(GRID_W - 1, gx + radius + 1);
+    const y0 = Math.max(0, gy - radius - 1);
+    const y1 = Math.min(GRID_H - 1, gy + radius + 1);
+    const [pr, pg, pb] = paint.rgb;
+    // density of this stamp; using pigment strength so colors mix like paint
+    for (let y = y0; y <= y1; y++){
+      for (let x = x0; x <= x1; x++){
+        const dx = x - gx, dy = y - gy;
+        const d2 = dx*dx + dy*dy;
+        if (d2 > r2sq) continue;
+        const t = 1 - (d2 / r2sq);
+        const w = t * 0.95; // linear falloff, stronger stamp so paint is immediately visible
+        const idx = y * GRID_W + x;
+        // accumulate pigment density (subtractive feel via clamp later)
+        r[idx] = Math.min(1, r[idx] + w * (pr / 255));
+        g[idx] = Math.min(1, g[idx] + w * (pg / 255));
+        b[idx] = Math.min(1, b[idx] + w * (pb / 255));
+      }
+    }
+  }
+
+  function drawSegment(x0, y0, x1, y1){
+    // convert both to grid, stamp along the segment in small steps
+    const [gx0, gy0] = canvasToGrid(x0, y0);
+    const [gx1, gy1] = canvasToGrid(x1, y1);
+    const dx = gx1 - gx0, dy = gy1 - gy0;
+    const steps = Math.max(1, Math.hypot(dx, dy) | 0);
+    // brushRadius is in CSS pixels; map to grid cells. Minimum 2 so a single dot is clearly visible.
+    const gridRadius = Math.max(2, Math.round(brushRadius * (GRID_W / cssW) * 1.4));
+    for (let i = 0; i <= steps; i++){
+      const t = i / steps;
+      stampPigment(Math.round(gx0 + dx * t), Math.round(gy0 + dy * t), gridRadius, activePaint);
+    }
+  }
+
+  function pointerDownHandler(e){
+    e.preventDefault();
+    const pt = getPoint(e);
+    pointerDown = true;
+    movedSinceDown = 0;
+    lastPX = pt.x;
+    lastPY = pt.y;
+    // single press also stamps (a dot of paint)
+    drawSegment(pt.x, pt.y, pt.x, pt.y);
+  }
+  function pointerMoveHandler(e){
+    if (!pointerDown) return;
+    const pt = getPoint(e);
+    movedSinceDown += Math.hypot(pt.x - lastPX, pt.y - lastPY);
+    drawSegment(lastPX, lastPY, pt.x, pt.y);
+    lastPX = pt.x;
+    lastPY = pt.y;
+  }
+  function pointerUpHandler(e){
+    if (!pointerDown) return;
+    const pt = getPoint(e);
+    pointerDown = false;
+    // click (low movement) = sample the mixed color at that spot
+    if (movedSinceDown < 6){
+      samplePixel(pt.x, pt.y);
+    }
+    lastPX = lastPY = null;
+  }
+  function getPoint(e){
+    if (e.touches && e.touches[0]){
+      const t = e.touches[0];
+      return { x: t.clientX, y: t.clientY };
+    }
+    if (e.changedTouches && e.changedTouches[0]){
+      const t = e.changedTouches[0];
+      return { x: t.clientX, y: t.clientY };
+    }
+    return { x: e.clientX, y: e.clientY };
+  }
+  canvas.addEventListener("mousedown", pointerDownHandler);
+  canvas.addEventListener("mousemove", pointerMoveHandler);
+  window.addEventListener("mouseup", pointerUpHandler);
+  canvas.addEventListener("touchstart", pointerDownHandler, { passive:false });
+  canvas.addEventListener("touchmove",  pointerMoveHandler,  { passive:false });
+  canvas.addEventListener("touchend",   pointerUpHandler);
+
+  /* -------- diffusion step (this IS the mixing) -------- */
+  // Each cell becomes a weighted average of itself and 4 neighbours.
+  // Run ~2 iterations/frame; pigment also slightly decays to simulate drying.
+  const DIFFUSE = 0.055;   // gentle watercolor bleed, not instant wash-out
+  const DECAY   = 0.0;     // paint stays; only "clear canvas" button removes it
+  function diffuseField(src, dst){
+    const W = GRID_W, H = GRID_H;
+    const k = DIFFUSE;
+    const selfW = 1 - 4 * k;
+    for (let y = 0; y < H; y++){
+      const yUp = y > 0 ? y - 1 : y;
+      const yDn = y < H - 1 ? y + 1 : y;
+      for (let x = 0; x < W; x++){
+        const xLf = x > 0 ? x - 1 : x;
+        const xRt = x < W - 1 ? x + 1 : x;
+        const i   = y * W + x;
+        const iU  = yUp * W + x;
+        const iD  = yDn * W + x;
+        const iL  = y * W + xLf;
+        const iR  = y * W + xRt;
+        let v = src[i] * selfW + k * (src[iU] + src[iD] + src[iL] + src[iR]);
+        v -= DECAY;
+        if (v < 0) v = 0;
+        dst[i] = v;
+      }
+    }
+  }
+  function stepSim(){
+    diffuseField(r, r2);
+    diffuseField(g, g2);
+    diffuseField(b, b2);
+    // swap
+    let tmp;
+    tmp = r; r = r2; r2 = tmp;
+    tmp = g; g = g2; g2 = tmp;
+    tmp = b; b = b2; b2 = tmp;
+  }
+
+  /* -------- render grid to canvas -------- */
+  // Build an ImageData the size of the grid, then upscale it to the canvas with
+  // smoothing — this gives the soft, wet look without expensive per-pixel shader.
+  let imgData = null;
+  let offCanvas = null, offCtx = null;
+  function ensureOffscreen(){
+    if (!offCanvas || offCanvas.width !== GRID_W || offCanvas.height !== GRID_H){
+      offCanvas = document.createElement("canvas");
+      offCanvas.width = GRID_W;
+      offCanvas.height = GRID_H;
+      offCtx = offCanvas.getContext("2d");
+      imgData = offCtx.createImageData(GRID_W, GRID_H);
+    }
+  }
+  function renderField(){
+    ensureOffscreen();
+    const data = imgData.data;
+    const N = GRID_W * GRID_H;
+    for (let i = 0; i < N; i++){
+      // pigment density [0..1] subtracts from paper colour (subtractive mixing feel)
+      const rd = r[i], gd = g[i], bd = b[i];
+      // blend with paper; higher density = more pigment color, less paper
+      // use max density as overall opacity so additive stamps do converge visually
+      const dens = Math.min(1, rd + gd + bd);
+      // Normalised pigment ratio (prevents single color washing everything)
+      const s = (rd + gd + bd) || 1;
+      const pr = rd / s, pg = gd / s, pb = bd / s;
+      // effective pigment RGB (0..255)
+      const er = pr * 255, eg = pg * 255, eb = pb * 255;
+      // alpha = density-ish curve
+      const a = 1 - Math.pow(1 - dens, 1.6);
+      const invA = 1 - a;
+      const j = i * 4;
+      data[j    ] = Math.round(er * a + bgR * invA);
+      data[j + 1] = Math.round(eg * a + bgG * invA);
+      data[j + 2] = Math.round(eb * a + bgB * invA);
+      data[j + 3] = 255;
+    }
+    offCtx.putImageData(imgData, 0, 0);
+
+    // upscale to main canvas
+    ctx.imageSmoothingEnabled = true;
+    ctx.imageSmoothingQuality = "high";
+    ctx.fillStyle = `rgb(${bgR},${bgG},${bgB})`;
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.drawImage(offCanvas, 0, 0, canvas.width, canvas.height);
+  }
+
+  /* -------- sampling (what makes this functional) -------- */
+  function samplePixel(px, py){
+    // Read directly from the rendered main canvas at device pixels.
+    const x = Math.max(0, Math.min(canvas.width - 1, Math.floor(px * dpr)));
+    const y = Math.max(0, Math.min(canvas.height - 1, Math.floor(py * dpr)));
+    const d = ctx.getImageData(x, y, 1, 1).data;
+    const hex = rgbToHex(d[0], d[1], d[2]);
+    updatePicked(d[0], d[1], d[2], hex);
+    // auto-save to palette (dedupe on hex)
+    if (!saved.some(s => s.hex === hex)){
+      saved.push({ r: d[0], g: d[1], b: d[2], hex });
+      persistPalette();
+      renderPalette();
+    }
+    // copy hex
+    try {
+      if (navigator.clipboard && navigator.clipboard.writeText){
+        navigator.clipboard.writeText(hex).then(() => flashCopied()).catch(()=>{});
+      }
+    } catch(_){}
+  }
+  function rgbToHex(r, g, b){
+    return "#" + [r,g,b].map(v => v.toString(16).padStart(2,"0")).join("").toUpperCase();
+  }
+  let currentPicked = null;
+  function updatePicked(r, g, b, hex){
+    currentPicked = { r, g, b, hex };
+    pchip.style.background = `rgb(${r},${g},${b})`;
+    phex.textContent = hex;
+    prgb.textContent = `rgb(${r}, ${g}, ${b})`;
+  }
+  function flashCopied(){
+    pickedEl.classList.add("copied");
+    clearTimeout(flashCopied._t);
+    flashCopied._t = setTimeout(() => pickedEl.classList.remove("copied"), 1400);
+  }
+
+  /* -------- saved palette (auto-saves on sample, persisted to localStorage) -------- */
+  const LS_KEY = "fluid-mixer-palette-v1";
+  const saved = (() => {
+    try {
+      const raw = localStorage.getItem(LS_KEY);
+      if (!raw) return [];
+      const arr = JSON.parse(raw);
+      return Array.isArray(arr) ? arr.filter(x => x && x.hex) : [];
+    } catch(_){ return []; }
+  })();
+  function persistPalette(){
+    try { localStorage.setItem(LS_KEY, JSON.stringify(saved)); } catch(_){}
+  }
+  function renderPalette(){
+    [...paletteEl.querySelectorAll(".saved")].forEach(n => n.remove());
+    paletteEmpty.style.display = saved.length === 0 ? "" : "none";
+    const anchor = clearPalBtn;
+    saved.forEach(s => {
+      const chip = document.createElement("div");
+      chip.className = "saved";
+      chip.style.background = s.hex;
+      chip.title = `${s.hex} — click to copy, hover × to remove`;
+      const label = document.createElement("span");
+      label.className = "hexlabel";
+      label.textContent = s.hex;
+      chip.appendChild(label);
+      chip.addEventListener("click", (e) => {
+        // if user clicked on the × area (approx top-right corner), treat as delete
+        const rect = chip.getBoundingClientRect();
+        const dx = e.clientX - (rect.right - 8);
+        const dy = e.clientY - (rect.top + 8);
+        if (Math.hypot(dx, dy) < 10){
+          const idx = saved.indexOf(s);
+          if (idx >= 0){ saved.splice(idx, 1); persistPalette(); renderPalette(); }
+          return;
+        }
+        updatePicked(s.r, s.g, s.b, s.hex);
+        try { navigator.clipboard && navigator.clipboard.writeText(s.hex).then(flashCopied).catch(()=>{}); } catch(_){}
+      });
+      chip.addEventListener("contextmenu", (e) => {
+        e.preventDefault();
+        const idx = saved.indexOf(s);
+        if (idx >= 0){ saved.splice(idx, 1); persistPalette(); renderPalette(); }
+      });
+      paletteEl.insertBefore(chip, anchor);
+    });
+  }
+  clearPalBtn.addEventListener("click", () => {
+    if (saved.length === 0) return;
+    if (!confirm(`Clear all ${saved.length} saved colors?`)) return;
+    saved.length = 0;
+    persistPalette();
+    renderPalette();
+  });
+  clearBtn.addEventListener("click", () => {
+    r.fill(0); g.fill(0); b.fill(0);
+    r2.fill(0); g2.fill(0); b2.fill(0);
+  });
+  /* render initially from localStorage on boot */
+  renderPalette();
+
+  /* -------- intro overlay -------- */
+  goBtn.addEventListener("click", () => {
+    intro.classList.add("hidden");
+  });
+  // dismiss on first canvas interaction too
+  canvas.addEventListener("pointerdown", () => intro.classList.add("hidden"), { once:true });
+
+  /* -------- main loop -------- */
+  function loop(){
+    stepSim();                  // single diffusion step/frame — slow, visible bleed
+    renderField();
+    requestAnimationFrame(loop);
+  }
+
+  /* -------- kick off -------- */
+  resize();
+  loop();
+
+  /* -------- seed: a small demo blob so the canvas isn't blank -------- */
+  (function seed(){
+    const demoDrops = [
+      { x: 0.30, y: 0.35, paint: PAINTS[5] }, // cobalt
+      { x: 0.42, y: 0.38, paint: PAINTS[1] }, // tangerine
+      { x: 0.55, y: 0.42, paint: PAINTS[3] }, // leaf
+      { x: 0.68, y: 0.40, paint: PAINTS[7] }, // magenta
+    ];
+    demoDrops.forEach(d => {
+      const gx = Math.round(d.x * GRID_W);
+      const gy = Math.round(d.y * GRID_H);
+      stampPigment(gx, gy, 8, d.paint);
+    });
+  })();
+})();
+</script>
+</body>
+</html>

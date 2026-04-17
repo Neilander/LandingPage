@@ -1,0 +1,254 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>frontend effects lab · 11 · liquid forge</title>
+<!--
+  参考: codepen.io/darika-dev/pen/rNvWGxZ (Fluid Metal shader),
+        tympanus.net/codrops/2025/03/24/animating-letters-with-shaders-... (字母 shader 位移)
+  技术: 全屏 <canvas> + vanilla WebGL fragment-only 四边形;
+        CanvasRenderingContext2D 预渲染文字 → gl.TEXTURE_2D;
+        fragment shader 用 fbm 噪声 warp UV,再采文字 alpha,rgb 由噪声 + fresnel 调出液态金属。
+  观感: 纯黑底,居中大字 "FLUID FORGE" 呈液态金属,鼠标靠近处扭曲放大,色彩 cyan↔magenta↔violet 流动。
+-->
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<style>
+:root{
+  --bg-0:#050308; --bg-1:#0a0612;
+  --cyan:#22d3ee; --magenta:#ec4899; --violet:#a855f7;
+  --fg-0:#f5f3ff; --fg-muted:#a1a1aa;
+}
+@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300..700&family=JetBrains+Mono:wght@400;600&display=swap');
+*{margin:0;padding:0;box-sizing:border-box}
+html,body{width:100%;height:100%;overflow:hidden;background:var(--bg-0);color:var(--fg-0);font-family:'Space Grotesk',system-ui,sans-serif;cursor:none}
+canvas#gl{position:fixed;inset:0;width:100%;height:100%;display:block}
+.ui{position:fixed;inset:0;pointer-events:none;display:flex;flex-direction:column;justify-content:space-between;padding:32px 40px;z-index:5;mix-blend-mode:difference}
+.row{display:flex;justify-content:space-between;align-items:flex-end;gap:24px;font-family:'JetBrains Mono',monospace;font-size:12px;letter-spacing:0.08em;text-transform:uppercase;color:var(--fg-0);opacity:0.72}
+.ver{text-align:right}
+.title{font-size:11px;letter-spacing:0.22em}
+.caption{max-width:280px;line-height:1.45;font-size:12px;color:var(--fg-muted);opacity:0.8;letter-spacing:0.02em;text-transform:none}
+.cursor{position:fixed;top:0;left:0;width:28px;height:28px;border-radius:50%;background:#fff;pointer-events:none;z-index:10;mix-blend-mode:difference;transform:translate(-50%,-50%);transition:width 0.25s ease,height 0.25s ease}
+</style>
+</head>
+<body>
+<canvas id="gl"></canvas>
+<div class="ui">
+  <div class="row">
+    <div class="title">frontend effects lab · 2026</div>
+    <div class="title">[ 01 / 10 ]</div>
+  </div>
+  <div class="row">
+    <div class="caption">Move your cursor across the surface — the glyph melts where the heat is highest. Zero dependencies, one fragment shader.</div>
+    <div class="ver">FLUID FORGE · v0.1 · 17 Apr 2026</div>
+  </div>
+</div>
+<div class="cursor"></div>
+
+<script>
+const canvas = document.getElementById('gl');
+const gl = canvas.getContext('webgl', {antialias:true, premultipliedAlpha:false});
+if(!gl){ document.body.innerHTML = '<p style="padding:40px;font-family:monospace">WebGL not available.</p>'; throw new Error('no webgl'); }
+
+/* ---------- shaders ---------- */
+const VS = `
+attribute vec2 aPos;
+varying vec2 vUv;
+void main(){ vUv = aPos*0.5+0.5; gl_Position = vec4(aPos,0.,1.); }`;
+
+const FS = `
+precision highp float;
+varying vec2 vUv;
+uniform sampler2D uText;
+uniform vec2  uRes;
+uniform vec2  uMouse;   // normalized [0,1]
+uniform float uTime;
+
+/* ---- tiny value-noise + fbm (Inigo Quilez style) ---- */
+float h21(vec2 p){ p=fract(p*vec2(123.34,456.21)); p+=dot(p,p+45.32); return fract(p.x*p.y); }
+float n2(vec2 p){
+  vec2 i=floor(p), f=fract(p);
+  float a=h21(i), b=h21(i+vec2(1,0)), c=h21(i+vec2(0,1)), d=h21(i+vec2(1,1));
+  vec2 u=f*f*(3.-2.*f);
+  return mix(a,b,u.x)+(c-a)*u.y*(1.-u.x)+(d-b)*u.x*u.y;
+}
+float fbm(vec2 p){
+  float v=0., a=0.5;
+  mat2 R=mat2(0.8,-0.6,0.6,0.8);
+  for(int i=0;i<5;i++){ v+=a*n2(p); p=R*p*2.; a*=0.5; }
+  return v;
+}
+
+void main(){
+  vec2 uv = vUv;
+  float aspect = uRes.x/uRes.y;
+  vec2 auv = vec2(uv.x*aspect, uv.y);
+  vec2 amouse = vec2(uMouse.x*aspect, uMouse.y);
+  float md = distance(auv, amouse);
+  float mInfluence = smoothstep(0.55, 0.0, md);
+
+  /* flow field */
+  float t = uTime*0.18;
+  vec2 q = vec2(fbm(auv*2.2 + t), fbm(auv*2.2 + 9.1 - t));
+  vec2 r = vec2(fbm(auv*2.6 + 4.*q + t*1.3),
+                fbm(auv*2.6 + 4.*q.yx + 2. - t*1.3));
+
+  /* displacement: base subtle + mouse amplified */
+  float amp = 0.018 + 0.085*mInfluence;
+  vec2 disp = (r - 0.5) * amp;
+
+  /* sample letter mask (y-flip since gl texture origin bottom-left) */
+  vec2 sUv = uv + disp;
+  float mask = texture2D(uText, vec2(sUv.x, 1.0 - sUv.y)).a;
+
+  /* background: deep vignette */
+  float vig = smoothstep(1.35, 0.2, length(uv-0.5));
+  vec3 bg = mix(vec3(0.008,0.004,0.018), vec3(0.025,0.015,0.055), vig);
+
+  /* liquid metal body color */
+  float n = fbm(sUv*3.0 + uTime*0.25 + r*2.0);
+  vec3 cyan    = vec3(0.133, 0.827, 0.933);
+  vec3 magenta = vec3(0.925, 0.282, 0.600);
+  vec3 violet  = vec3(0.659, 0.333, 0.969);
+  vec3 metal = mix(cyan, magenta, n);
+  metal = mix(metal, violet, smoothstep(0.55, 0.9, n));
+
+  /* sharp specular highlight along flow */
+  float hi = smoothstep(0.70, 0.88, fbm(sUv*7.0 + uTime*0.5 + q*3.0));
+  metal += hi * 0.55;
+
+  /* rim from mask gradient (approx via neighbor samples) */
+  float e = 1.5/uRes.y;
+  float mL = texture2D(uText, vec2(sUv.x-e, 1.-sUv.y)).a;
+  float mR = texture2D(uText, vec2(sUv.x+e, 1.-sUv.y)).a;
+  float mU = texture2D(uText, vec2(sUv.x, 1.-(sUv.y-e))).a;
+  float mD = texture2D(uText, vec2(sUv.x, 1.-(sUv.y+e))).a;
+  float grad = length(vec2(mR-mL, mU-mD));
+  metal += grad * 8.0 * vec3(1.0, 0.9, 1.1);
+
+  /* ambient glow around letters near mouse */
+  float glow = grad * 6.0 * mInfluence;
+
+  vec3 col = mix(bg, metal, mask);
+  col += glow * mix(cyan, magenta, 0.5);
+
+  /* subtle filmic curve + grain */
+  float grain = (h21(gl_FragCoord.xy + uTime*60.0) - 0.5) * 0.04;
+  col += grain;
+  col = pow(col, vec3(0.92));
+
+  gl_FragColor = vec4(col, 1.0);
+}`;
+
+/* ---------- compile ---------- */
+function sh(type, src){
+  const s = gl.createShader(type); gl.shaderSource(s, src); gl.compileShader(s);
+  if(!gl.getShaderParameter(s, gl.COMPILE_STATUS)){ console.error(gl.getShaderInfoLog(s)); throw new Error('shader'); }
+  return s;
+}
+const prog = gl.createProgram();
+gl.attachShader(prog, sh(gl.VERTEX_SHADER, VS));
+gl.attachShader(prog, sh(gl.FRAGMENT_SHADER, FS));
+gl.linkProgram(prog);
+if(!gl.getProgramParameter(prog, gl.LINK_STATUS)){ console.error(gl.getProgramInfoLog(prog)); throw new Error('link'); }
+gl.useProgram(prog);
+
+const buf = gl.createBuffer();
+gl.bindBuffer(gl.ARRAY_BUFFER, buf);
+gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1,-1, 1,-1, -1,1, 1,1]), gl.STATIC_DRAW);
+const aPos = gl.getAttribLocation(prog, 'aPos');
+gl.enableVertexAttribArray(aPos);
+gl.vertexAttribPointer(aPos, 2, gl.FLOAT, false, 0, 0);
+
+const uText  = gl.getUniformLocation(prog, 'uText');
+const uRes   = gl.getUniformLocation(prog, 'uRes');
+const uMouse = gl.getUniformLocation(prog, 'uMouse');
+const uTime  = gl.getUniformLocation(prog, 'uTime');
+
+/* ---------- text → texture ---------- */
+const tex = gl.createTexture();
+gl.bindTexture(gl.TEXTURE_2D, tex);
+gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+gl.uniform1i(uText, 0);
+
+const off = document.createElement('canvas');
+const octx = off.getContext('2d');
+
+function drawTextToTexture(w, h){
+  off.width = w; off.height = h;
+  octx.clearRect(0,0,w,h);
+  const size = Math.round(Math.min(w*0.12, h*0.28));
+  octx.fillStyle = '#fff';
+  octx.font = `900 ${size}px "Space Grotesk", system-ui, sans-serif`;
+  octx.textAlign = 'center';
+  octx.textBaseline = 'middle';
+  const metrics = octx.measureText('FLUID FORGE');
+  /* letter-spacing faux: draw char-by-char */
+  const spacing = size*0.02;
+  const text = 'FLUID FORGE';
+  let total = 0;
+  const widths = [...text].map(c => { const mw = octx.measureText(c).width; total += mw; return mw; });
+  total += spacing*(text.length-1);
+  let x = w/2 - total/2;
+  for(let i=0;i<text.length;i++){
+    const cw = widths[i];
+    octx.fillText(text[i], x + cw/2, h*0.5);
+    x += cw + spacing;
+  }
+  /* second line smaller */
+  const sub = 'frontend effects lab · no. 11';
+  octx.font = `400 ${Math.round(size*0.13)}px "JetBrains Mono", monospace`;
+  octx.fillStyle = 'rgba(255,255,255,0.55)';
+  octx.fillText(sub, w/2, h*0.5 + size*0.85);
+
+  gl.bindTexture(gl.TEXTURE_2D, tex);
+  gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, off);
+}
+
+/* ---------- resize ---------- */
+const dpr = Math.min(window.devicePixelRatio||1, 2);
+function resize(){
+  const w = Math.round(window.innerWidth*dpr);
+  const h = Math.round(window.innerHeight*dpr);
+  canvas.width = w; canvas.height = h;
+  canvas.style.width = window.innerWidth+'px';
+  canvas.style.height = window.innerHeight+'px';
+  gl.viewport(0,0,w,h);
+  drawTextToTexture(w, h);
+  gl.uniform2f(uRes, w, h);
+}
+window.addEventListener('resize', resize);
+resize();
+if(document.fonts && document.fonts.ready){
+  document.fonts.ready.then(()=>drawTextToTexture(canvas.width, canvas.height));
+}
+
+/* ---------- mouse (smoothed) ---------- */
+const mouse = {x:0.5, y:0.5, tx:0.5, ty:0.5};
+window.addEventListener('pointermove', e => {
+  mouse.tx = e.clientX/window.innerWidth;
+  mouse.ty = e.clientY/window.innerHeight;
+});
+const cursorEl = document.querySelector('.cursor');
+let cx=0, cy=0;
+
+/* ---------- render ---------- */
+const t0 = performance.now();
+function frame(){
+  mouse.x += (mouse.tx - mouse.x)*0.08;
+  mouse.y += (mouse.ty - mouse.y)*0.08;
+  cx += (mouse.tx*window.innerWidth - cx)*0.18;
+  cy += (mouse.ty*window.innerHeight - cy)*0.18;
+  cursorEl.style.transform = `translate(${cx-14}px,${cy-14}px)`;
+
+  gl.uniform2f(uMouse, mouse.x, 1.0 - mouse.y);
+  gl.uniform1f(uTime, (performance.now()-t0)/1000);
+  gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+  requestAnimationFrame(frame);
+}
+frame();
+</script>
+</body>
+</html>

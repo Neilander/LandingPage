@@ -1,0 +1,436 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>frontend effects lab · 20 · product cards</title>
+<!--
+  参考: codepen.io/Devotee007/pen/pomOEVa (GSAP 3D Card Hover),
+        codepen.io/filipz/pen/QwwOEQZ (Mystery Card + 噪点 overlay),
+        codepen.io/jmperez/pen/wrVxga (Spotify 风 duotone blend),
+        codepen.io/Sidstumple/pen/NWPgGNB (duotone hover 色切换).
+  技术: 纯 CSS 3×2 网格 + GSAP 基于鼠标位置 rotX/Y 3D 倾斜 + transformPerspective 景深 +
+        每卡 CSS custom props --c1/--c2 控制双色调 + hover 换色过渡 +
+        光标位置写入 --mx/--my 让高光径向渐变跟随 + 通屏 SVG grain 叠加 + 载入 stagger.
+  观感: 米色纸底上漂着 6 张"slow goods"产品卡, 每张配一件手绘风 SVG 抽象图,
+        hover 卡片浮起微倾+高光扫过+双色调切换, 仿佛摸到了纸上的亚光印刷. 录屏一片温柔.
+-->
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<style>
+:root{
+  --paper:#efe7d6; --paper-2:#e3d8c1; --cream:#f6eddb;
+  --ink:#1b1815; --ink-dim:#746c5b;
+  --brick:#c64a2a; --moss:#384a33; --brass:#b99754; --sky:#4a6d87; --rose:#e38a6a; --plum:#6a3a5d;
+}
+@import url('https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght,SOFT,WONK@0,9..144,300..900,0..100,0..1;1,9..144,300..900,0..100,0..1&family=Inter:wght@300..800&family=JetBrains+Mono:wght@400;600&display=swap');
+*{margin:0;padding:0;box-sizing:border-box}
+html,body{min-height:100%;background:var(--paper);color:var(--ink);font-family:'Inter',system-ui,sans-serif;cursor:none}
+
+.grain{position:fixed;inset:0;pointer-events:none;z-index:80;
+  background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='220' height='220'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 0.55 0'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>");
+  background-size:220px 220px;opacity:0.26;mix-blend-mode:multiply}
+
+header{display:grid;grid-template-columns:1fr 1fr 1fr;align-items:center;padding:28px clamp(32px,4vw,64px);border-bottom:1px solid rgba(27,24,21,0.15)}
+header .l,header .r{font-family:'JetBrains Mono',monospace;font-size:11px;letter-spacing:0.26em;text-transform:uppercase;color:var(--ink-dim)}
+header .l b{font-family:'Fraunces',serif;font-style:italic;font-weight:500;font-variation-settings:"opsz" 14,"WONK" 1;color:var(--ink);font-size:15px;letter-spacing:0}
+header .c{text-align:center;font-family:'Fraunces',serif;font-style:italic;font-weight:500;font-variation-settings:"opsz" 24,"WONK" 1;font-size:20px;color:var(--ink)}
+header .r{text-align:right}
+header .r span{display:inline-block;padding:3px 9px;border:1px solid var(--ink);border-radius:999px;margin-left:8px;color:var(--ink)}
+
+.hero{padding:40px clamp(32px,4vw,64px) 24px}
+.hero .eyebrow{font-family:'JetBrains Mono',monospace;font-size:11px;letter-spacing:0.32em;text-transform:uppercase;color:var(--ink-dim);margin-bottom:14px}
+.hero h1{font-family:'Fraunces',serif;font-weight:900;font-variation-settings:"opsz" 144,"SOFT" 30,"WONK" 1;font-size:clamp(52px,9vw,140px);line-height:0.88;letter-spacing:-0.035em;max-width:14ch}
+.hero h1 em{font-style:italic;color:var(--brick);font-variation-settings:"opsz" 144,"SOFT" 80,"WONK" 1}
+.hero .row{display:flex;justify-content:space-between;align-items:flex-end;gap:24px;margin-top:22px}
+.hero .sub{max-width:560px;font-family:'Fraunces',serif;font-style:italic;font-variation-settings:"opsz" 20,"WONK" 1;font-size:19px;line-height:1.4;color:var(--ink);opacity:0.85}
+.hero .filters{display:flex;gap:8px;flex-wrap:wrap}
+.hero .filters span{font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:0.28em;text-transform:uppercase;color:var(--ink-dim);padding:6px 12px;border:1px solid rgba(27,24,21,0.25);border-radius:999px}
+.hero .filters span.on{color:var(--ink);background:var(--cream);border-color:var(--ink)}
+
+/* grid */
+.grid{display:grid;grid-template-columns:repeat(3, minmax(0,1fr));gap:clamp(18px,2vw,36px);padding:28px clamp(32px,4vw,64px) 80px;perspective:1500px}
+@media (max-width:900px){ .grid{grid-template-columns:repeat(2,1fr)} }
+
+.card{
+  --c1: var(--moss); --c2: var(--brick); --c3: var(--cream);
+  --mx:50%; --my:50%;
+  position:relative;
+  aspect-ratio: 3/4;
+  background:var(--c3);
+  border-radius:18px;
+  overflow:hidden;
+  display:flex;flex-direction:column;
+  transform-style:preserve-3d;
+  will-change:transform;
+  transition: background-color 0.4s cubic-bezier(0.2,0.7,0.2,1);
+  box-shadow:
+    0 1px 2px rgba(27,24,21,0.06),
+    0 18px 40px -20px rgba(27,24,21,0.18);
+  cursor:none;
+}
+.card .img{
+  position:relative;
+  flex:1 1 0;
+  background:var(--c2);
+  overflow:hidden;
+  transition: background-color 0.4s cubic-bezier(0.2,0.7,0.2,1);
+}
+.card .img svg{position:absolute;inset:0;width:100%;height:100%;display:block}
+/* shimmer highlight follows cursor */
+.card .shine{
+  position:absolute;inset:0;pointer-events:none;z-index:3;opacity:0;
+  background:radial-gradient(240px 240px at var(--mx) var(--my), rgba(255,244,225,0.45) 0%, rgba(255,244,225,0) 60%);
+  transition:opacity 0.3s ease;
+  mix-blend-mode:screen;
+}
+.card:hover .shine{opacity:1}
+.card .grainIn{
+  position:absolute;inset:0;pointer-events:none;z-index:2;opacity:0.22;mix-blend-mode:multiply;
+  background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='160' height='160'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='1.2' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 0.7 0'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>");
+  background-size:160px 160px;
+}
+.card .tag{position:absolute;top:14px;left:14px;z-index:4;padding:5px 10px;border-radius:999px;background:rgba(27,24,21,0.85);color:var(--cream);font-family:'JetBrains Mono',monospace;font-size:9px;letter-spacing:0.24em;text-transform:uppercase;backdrop-filter:blur(2px)}
+.card .idx{position:absolute;top:14px;right:14px;z-index:4;font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:0.2em;color:rgba(27,24,21,0.75);mix-blend-mode:difference;color:var(--cream)}
+
+.card .meta{padding:18px 20px 22px;display:flex;flex-direction:column;gap:6px;background:var(--c3);z-index:5;position:relative}
+.card .meta .name{font-family:'Fraunces',serif;font-weight:700;font-style:normal;font-variation-settings:"opsz" 48,"WONK" 1;font-size:clamp(20px,1.8vw,28px);letter-spacing:-0.01em;color:var(--ink);line-height:1.05}
+.card .meta .name em{font-style:italic;color:var(--c2);font-variation-settings:"opsz" 48,"SOFT" 80,"WONK" 1;transition:color 0.4s}
+.card .meta .sub{font-family:'Inter',sans-serif;font-size:12px;color:var(--ink-dim);letter-spacing:0.04em;line-height:1.4}
+.card .meta .row2{display:flex;justify-content:space-between;align-items:center;margin-top:10px}
+.card .meta .price{font-family:'Fraunces',serif;font-weight:700;font-style:italic;font-variation-settings:"opsz" 24,"WONK" 1;font-size:18px;color:var(--ink)}
+.card .meta .buy{
+  font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:0.24em;text-transform:uppercase;
+  padding:8px 14px;border-radius:999px;border:1px solid var(--ink);color:var(--ink);background:transparent;
+  cursor:pointer;transition:background 0.3s ease, color 0.3s ease;
+}
+.card:hover .meta .buy{background:var(--ink);color:var(--cream)}
+
+/* duotone swap on hover — subtle palette rotation */
+.card:hover{ --c1: var(--brick); --c2: var(--moss); }
+.card[data-v="2"]{ --c1: var(--brass); --c2: var(--plum); }
+.card[data-v="2"]:hover{ --c1: var(--plum); --c2: var(--brass); }
+.card[data-v="3"]{ --c1: var(--sky); --c2: var(--rose); }
+.card[data-v="3"]:hover{ --c1: var(--rose); --c2: var(--sky); }
+.card[data-v="4"]{ --c1: var(--brick); --c2: var(--moss); }
+.card[data-v="4"]:hover{ --c1: var(--moss); --c2: var(--brick); }
+.card[data-v="5"]{ --c1: var(--plum); --c2: var(--brass); }
+.card[data-v="5"]:hover{ --c1: var(--brass); --c2: var(--plum); }
+.card[data-v="6"]{ --c1: var(--moss); --c2: var(--rose); }
+.card[data-v="6"]:hover{ --c1: var(--rose); --c2: var(--moss); }
+
+/* load-in reveal */
+.card{opacity:0;transform:translateY(28px)}
+
+/* cursor */
+.cursor{position:fixed;top:0;left:0;width:20px;height:20px;border-radius:50%;border:1.2px solid var(--ink);pointer-events:none;z-index:200;transform:translate(-50%,-50%);mix-blend-mode:difference}
+
+/* footer */
+footer{display:grid;grid-template-columns:1fr 1fr 1fr;align-items:center;padding:24px clamp(32px,4vw,64px);border-top:1px solid rgba(27,24,21,0.15);font-family:'JetBrains Mono',monospace;font-size:11px;letter-spacing:0.24em;text-transform:uppercase;color:var(--ink-dim)}
+footer .c{text-align:center;font-family:'Fraunces',serif;font-style:italic;color:var(--ink);letter-spacing:0;font-variation-settings:"opsz" 16,"WONK" 1}
+footer .r{text-align:right}
+</style>
+</head>
+<body>
+<div class="grain"></div>
+<div class="cursor"></div>
+
+<header>
+  <div class="l"><b>slow goods</b> · est 2026</div>
+  <div class="c">the spring collection</div>
+  <div class="r">search · account <span>cart (0)</span></div>
+</header>
+
+<section class="hero">
+  <div class="eyebrow">issue 020 · catalog</div>
+  <h1>objects, <em>held</em> slowly.</h1>
+  <div class="row">
+    <div class="sub">Six quiet goods for a patient desk. Every item printed in two colors on uncoated stock. Hover each card to feel its paper tilt.</div>
+    <div class="filters">
+      <span class="on">all · 06</span><span>audio</span><span>paper</span><span>terminal</span>
+    </div>
+  </div>
+</section>
+
+<section class="grid" id="grid">
+
+  <!-- card 1: Cassette 04 -->
+  <article class="card" data-v="1" data-name="Cassette 04">
+    <div class="img">
+      <svg viewBox="0 0 300 300" preserveAspectRatio="xMidYMid slice">
+        <rect x="0" y="0" width="300" height="300" fill="var(--c2)"/>
+        <!-- tape reels -->
+        <circle cx="95"  cy="150" r="54" fill="var(--c1)"/>
+        <circle cx="205" cy="150" r="54" fill="var(--c1)"/>
+        <circle cx="95"  cy="150" r="18" fill="var(--c2)"/>
+        <circle cx="205" cy="150" r="18" fill="var(--c2)"/>
+        <!-- tape band -->
+        <path d="M 95 150 Q 150 90 205 150" stroke="var(--c1)" stroke-width="4" fill="none"/>
+        <!-- label -->
+        <rect x="60" y="40" width="180" height="44" rx="4" fill="var(--c1)" opacity="0.7"/>
+        <text x="150" y="68" font-family="JetBrains Mono" font-size="14" letter-spacing="3" text-anchor="middle" fill="var(--c3)">SIDE A · 30 MIN</text>
+      </svg>
+      <div class="grainIn"></div>
+      <div class="shine"></div>
+      <div class="tag">analog</div>
+      <div class="idx">01</div>
+    </div>
+    <div class="meta">
+      <div class="name">Cassette <em>04</em></div>
+      <div class="sub">30-min loop · ferric tape · limited to 120</div>
+      <div class="row2">
+        <div class="price">$24</div>
+        <button class="buy">add</button>
+      </div>
+    </div>
+  </article>
+
+  <!-- card 2: Pocket Noise -->
+  <article class="card" data-v="2" data-name="Pocket Noise">
+    <div class="img">
+      <svg viewBox="0 0 300 300" preserveAspectRatio="xMidYMid slice">
+        <rect x="0" y="0" width="300" height="300" fill="var(--c2)"/>
+        <g fill="none" stroke="var(--c1)" stroke-width="2">
+          <circle cx="150" cy="150" r="22"/>
+          <circle cx="150" cy="150" r="50"/>
+          <circle cx="150" cy="150" r="78"/>
+          <circle cx="150" cy="150" r="106"/>
+          <circle cx="150" cy="150" r="134"/>
+        </g>
+        <circle cx="150" cy="150" r="10" fill="var(--c1)"/>
+        <!-- tick marks -->
+        <g fill="var(--c1)">
+          <rect x="148.5" y="8"  width="3" height="10"/>
+          <rect x="148.5" y="282" width="3" height="10"/>
+          <rect x="8" y="148.5"  width="10" height="3"/>
+          <rect x="282" y="148.5" width="10" height="3"/>
+        </g>
+      </svg>
+      <div class="grainIn"></div>
+      <div class="shine"></div>
+      <div class="tag">audio</div>
+      <div class="idx">02</div>
+    </div>
+    <div class="meta">
+      <div class="name">Pocket <em>Noise</em></div>
+      <div class="sub">pink-brown generator · usb-c · brass shell</div>
+      <div class="row2">
+        <div class="price">$68</div>
+        <button class="buy">add</button>
+      </div>
+    </div>
+  </article>
+
+  <!-- card 3: Paper Press -->
+  <article class="card" data-v="3" data-name="Paper Press">
+    <div class="img">
+      <svg viewBox="0 0 300 300" preserveAspectRatio="xMidYMid slice">
+        <rect x="0" y="0" width="300" height="300" fill="var(--c2)"/>
+        <!-- stacked papers -->
+        <g>
+          <rect x="70" y="88"  width="170" height="170" rx="4" fill="var(--c1)" transform="rotate(-8 155 173)"/>
+          <rect x="70" y="88"  width="170" height="170" rx="4" fill="var(--c3)" transform="rotate(-2 155 173)"/>
+          <rect x="70" y="88"  width="170" height="170" rx="4" fill="var(--c1)" transform="rotate(4  155 173)"/>
+        </g>
+        <!-- lines on top sheet -->
+        <g stroke="var(--c2)" stroke-width="2" transform="rotate(4 155 173)">
+          <line x1="92" y1="120" x2="218" y2="120"/>
+          <line x1="92" y1="140" x2="200" y2="140"/>
+          <line x1="92" y1="160" x2="210" y2="160"/>
+          <line x1="92" y1="180" x2="170" y2="180"/>
+        </g>
+      </svg>
+      <div class="grainIn"></div>
+      <div class="shine"></div>
+      <div class="tag">paper</div>
+      <div class="idx">03</div>
+    </div>
+    <div class="meta">
+      <div class="name">Paper <em>Press</em></div>
+      <div class="sub">24 sheets · 180gsm mohawk · letterpress</div>
+      <div class="row2">
+        <div class="price">$42</div>
+        <button class="buy">add</button>
+      </div>
+    </div>
+  </article>
+
+  <!-- card 4: Slow Terminal -->
+  <article class="card" data-v="4" data-name="Slow Terminal">
+    <div class="img">
+      <svg viewBox="0 0 300 300" preserveAspectRatio="xMidYMid slice">
+        <rect x="0" y="0" width="300" height="300" fill="var(--c2)"/>
+        <!-- monitor frame -->
+        <rect x="48" y="66" width="204" height="150" rx="12" fill="var(--c1)"/>
+        <rect x="62" y="80" width="176" height="122" rx="6" fill="var(--c3)"/>
+        <!-- scan lines -->
+        <g stroke="var(--c1)" stroke-width="0.8" opacity="0.35">
+          <line x1="62" y1="96"  x2="238" y2="96"/>
+          <line x1="62" y1="104" x2="238" y2="104"/>
+          <line x1="62" y1="112" x2="238" y2="112"/>
+          <line x1="62" y1="120" x2="238" y2="120"/>
+          <line x1="62" y1="128" x2="238" y2="128"/>
+          <line x1="62" y1="136" x2="238" y2="136"/>
+          <line x1="62" y1="144" x2="238" y2="144"/>
+          <line x1="62" y1="152" x2="238" y2="152"/>
+          <line x1="62" y1="160" x2="238" y2="160"/>
+          <line x1="62" y1="168" x2="238" y2="168"/>
+          <line x1="62" y1="176" x2="238" y2="176"/>
+          <line x1="62" y1="184" x2="238" y2="184"/>
+          <line x1="62" y1="192" x2="238" y2="192"/>
+        </g>
+        <text x="74" y="114" font-family="JetBrains Mono" font-size="11" fill="var(--c1)">$ slow --breathe</text>
+        <text x="74" y="136" font-family="JetBrains Mono" font-size="11" fill="var(--c1)">▓▓▓▓▓░░░░  52%</text>
+        <!-- stand -->
+        <rect x="136" y="220" width="28" height="20" fill="var(--c1)"/>
+        <rect x="108" y="238" width="84" height="6" rx="2" fill="var(--c1)"/>
+      </svg>
+      <div class="grainIn"></div>
+      <div class="shine"></div>
+      <div class="tag">terminal</div>
+      <div class="idx">04</div>
+    </div>
+    <div class="meta">
+      <div class="name">Slow <em>Terminal</em></div>
+      <div class="sub">15 chars/sec limit · amber crt · ssh</div>
+      <div class="row2">
+        <div class="price">$180</div>
+        <button class="buy">add</button>
+      </div>
+    </div>
+  </article>
+
+  <!-- card 5: Cloud Stamp -->
+  <article class="card" data-v="5" data-name="Cloud Stamp">
+    <div class="img">
+      <svg viewBox="0 0 300 300" preserveAspectRatio="xMidYMid slice">
+        <defs>
+          <filter id="cs" x="0" y="0">
+            <feTurbulence type="fractalNoise" baseFrequency="0.01" numOctaves="4" seed="3"/>
+            <feColorMatrix values="0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 18 -7"/>
+            <feComposite in2="SourceGraphic" operator="in"/>
+          </filter>
+        </defs>
+        <rect x="0" y="0" width="300" height="300" fill="var(--c2)"/>
+        <!-- cloud ring base -->
+        <circle cx="150" cy="150" r="95" fill="var(--c1)" filter="url(#cs)" opacity="0.9"/>
+        <circle cx="150" cy="150" r="95" fill="none" stroke="var(--c1)" stroke-width="1" stroke-dasharray="2 6"/>
+        <!-- stamp text arcs -->
+        <defs>
+          <path id="arcT" d="M 60 150 a 90 90 0 0 1 180 0"/>
+        </defs>
+        <text font-family="JetBrains Mono" font-size="11" letter-spacing="3" fill="var(--c1)">
+          <textPath href="#arcT">· SLOW PRESS · CLOUD · NO. 05 ·</textPath>
+        </text>
+      </svg>
+      <div class="grainIn"></div>
+      <div class="shine"></div>
+      <div class="tag">stamp</div>
+      <div class="idx">05</div>
+    </div>
+    <div class="meta">
+      <div class="name">Cloud <em>Stamp</em></div>
+      <div class="sub">hand-carved rubber · india ink · 50mm</div>
+      <div class="row2">
+        <div class="price">$38</div>
+        <button class="buy">add</button>
+      </div>
+    </div>
+  </article>
+
+  <!-- card 6: Field Recorder -->
+  <article class="card" data-v="6" data-name="Field Recorder">
+    <div class="img">
+      <svg viewBox="0 0 300 300" preserveAspectRatio="xMidYMid slice">
+        <rect x="0" y="0" width="300" height="300" fill="var(--c2)"/>
+        <!-- organic blob -->
+        <path d="M 60 170
+                 C 40 110, 100 60, 160 70
+                 C 230 80, 260 140, 240 200
+                 C 220 260, 140 270, 90 240
+                 C 60 220, 70 195, 60 170 Z"
+              fill="var(--c1)"/>
+        <!-- dot cluster (rain) -->
+        <g fill="var(--c3)">
+          <circle cx="100" cy="100" r="2"/>
+          <circle cx="120" cy="90"  r="1.4"/>
+          <circle cx="140" cy="105" r="2.2"/>
+          <circle cx="170" cy="95"  r="1.6"/>
+          <circle cx="195" cy="108" r="2.4"/>
+          <circle cx="220" cy="102" r="1.5"/>
+          <circle cx="140" cy="140" r="1.2"/>
+          <circle cx="180" cy="150" r="2"/>
+          <circle cx="210" cy="145" r="1.3"/>
+        </g>
+        <!-- wave line -->
+        <path d="M 50 210 Q 80 195 110 210 T 170 210 T 230 210 T 290 210"
+              fill="none" stroke="var(--c3)" stroke-width="1.6" opacity="0.85"/>
+      </svg>
+      <div class="grainIn"></div>
+      <div class="shine"></div>
+      <div class="tag">field</div>
+      <div class="idx">06</div>
+    </div>
+    <div class="meta">
+      <div class="name">Field <em>Recorder</em></div>
+      <div class="sub">mono 24-bit · wind cover · 6hr cell</div>
+      <div class="row2">
+        <div class="price">$220</div>
+        <button class="buy">add</button>
+      </div>
+    </div>
+  </article>
+
+</section>
+
+<footer>
+  <div class="l">frontend effects lab · slow goods</div>
+  <div class="c">— 10 / 10 —</div>
+  <div class="r">v0.1 · 17 apr 2026</div>
+</footer>
+
+<script src="https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/gsap.min.js"></script>
+<script>
+/* load-in stagger */
+window.addEventListener('load', ()=>{
+  gsap.to('.card', {
+    y:0, opacity:1, duration:1.0, ease:'expo.out',
+    stagger:{ amount:0.5, from:'start' }
+  });
+});
+
+/* 3D tilt per card + shimmer tracking */
+const cards = document.querySelectorAll('.card');
+cards.forEach(card => {
+  const q = gsap.quickTo(card, 'rotationY', { duration:0.45, ease:'power2.out' });
+  const p = gsap.quickTo(card, 'rotationX', { duration:0.45, ease:'power2.out' });
+  const tz = gsap.quickTo(card, 'z', { duration:0.45, ease:'power2.out' });
+
+  card.addEventListener('pointermove', e => {
+    const r = card.getBoundingClientRect();
+    const nx = (e.clientX - r.left)/r.width  - 0.5;
+    const ny = (e.clientY - r.top )/r.height - 0.5;
+    q(nx*14);
+    p(-ny*14);
+    tz(40);
+    card.style.setProperty('--mx', ((nx+0.5)*100).toFixed(1)+'%');
+    card.style.setProperty('--my', ((ny+0.5)*100).toFixed(1)+'%');
+  });
+  card.addEventListener('pointerleave', () => {
+    q(0); p(0); tz(0);
+  });
+});
+
+/* set perspective on each card for individual 3D context */
+gsap.set('.card', { transformPerspective: 1000, transformOrigin:'50% 50%' });
+
+/* cursor */
+const cursorEl = document.querySelector('.cursor');
+let cx=0, cy=0, ctx=window.innerWidth/2, cty=window.innerHeight/2;
+window.addEventListener('pointermove', e => { ctx=e.clientX; cty=e.clientY; });
+(function tick(){
+  cx += (ctx-cx)*0.22; cy += (cty-cy)*0.22;
+  cursorEl.style.transform = `translate(${cx-10}px,${cy-10}px)`;
+  requestAnimationFrame(tick);
+})();
+</script>
+</body>
+</html>

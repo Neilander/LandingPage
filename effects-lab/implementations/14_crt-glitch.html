@@ -1,0 +1,271 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>frontend effects lab · 14 · crt glitch</title>
+<!--
+  参考: codepen.io/GLITCHXploitR/pen/OxGKrq (CRT TV Effect 扫描线+噪点),
+        freefrontend.com/css-text-glitch-effects/ (clip-path + RGB split 切片),
+        Phaser 2026-03 RetroZone scanline/warp 思路。
+  技术: DOM 分层 + CSS text-shadow RGB split + SVG feDisplacementMap 桶形畸变 +
+        canvas 2D 静态噪点 overlay + JS 驱动的故障事件（RGB 分离跳变 / 二进制乱码 / 随机带块）+
+        scanline CSS 重复渐变 + flicker opacity 动画。
+  观感: 1987 录像带/CRT 控制台, 琥珀色 phosphor 主体 "SIGNAL LOST" + 二进制翻滚,
+        每隔几百毫秒故障抖一次, 录屏天然有叙事张力。
+-->
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<style>
+:root{
+  --bg:#06030a; --bg-2:#0b0513; --amber:#ffb347; --amber-hot:#ffd580;
+  --cyan:#00e0ff; --magenta:#ff2a88; --dim:#80583e;
+}
+@import url('https://fonts.googleapis.com/css2?family=VT323&family=JetBrains+Mono:wght@400;600;700&display=swap');
+*{margin:0;padding:0;box-sizing:border-box}
+html,body{width:100%;height:100%;background:var(--bg);color:var(--amber);font-family:'JetBrains Mono',monospace;overflow:hidden}
+body{cursor:crosshair}
+
+/* CRT container with barrel distortion */
+.crt{
+  position:fixed;inset:0;
+  background:
+    radial-gradient(ellipse 120% 80% at 50% 50%, #120a1f 0%, var(--bg) 55%, #000 100%);
+  filter: url(#barrel) contrast(1.08) saturate(1.15);
+  overflow:hidden;
+  animation: flicker 140ms infinite steps(2);
+}
+@keyframes flicker{
+  0%{opacity:1}
+  50%{opacity:0.985}
+  100%{opacity:1}
+}
+.crt::before{ /* scanlines */
+  content:"";position:absolute;inset:0;pointer-events:none;z-index:6;
+  background:repeating-linear-gradient(
+    to bottom,
+    rgba(0,0,0,0) 0px,
+    rgba(0,0,0,0) 2px,
+    rgba(0,0,0,0.35) 2.5px,
+    rgba(0,0,0,0) 3px
+  );
+  mix-blend-mode:multiply;
+}
+.crt::after{ /* vignette + glow */
+  content:"";position:absolute;inset:0;pointer-events:none;z-index:7;
+  background:
+    radial-gradient(ellipse at 50% 50%, transparent 55%, rgba(0,0,0,0.75) 100%),
+    radial-gradient(ellipse at 50% 50%, rgba(255,179,71,0.06), transparent 70%);
+}
+
+/* RGB split */
+.screen{
+  position:absolute;inset:0;z-index:3;
+  display:flex;flex-direction:column;justify-content:space-between;
+  padding:56px 8vw;
+  text-shadow:
+    var(--split-x,3px) 0 var(--cyan),
+    calc(-1 * var(--split-x,3px)) 0 var(--magenta),
+    0 0 16px rgba(255,179,71,0.55);
+  transition: text-shadow 60ms linear;
+}
+
+/* top marquee */
+.marquee{
+  font-size:clamp(12px,1.1vw,14px);
+  letter-spacing:0.32em;
+  color:var(--dim);
+  display:flex;justify-content:space-between;align-items:center;
+  text-transform:uppercase;
+}
+.marquee .dot{width:8px;height:8px;border-radius:50%;background:var(--amber);box-shadow:0 0 10px var(--amber);animation:blink 1.2s infinite steps(2)}
+@keyframes blink{0%,50%{opacity:1}50.01%,100%{opacity:0.2}}
+
+/* huge center block */
+.center{
+  display:flex;flex-direction:column;align-items:center;gap:34px;margin:auto 0;
+}
+.binary{
+  font-family:'VT323','JetBrains Mono',monospace;
+  font-size:clamp(28px, 3.6vw, 64px);
+  letter-spacing:0.12em;
+  color:var(--amber-hot);
+  opacity:0.82;
+}
+.headline{
+  font-family:'JetBrains Mono',monospace;
+  font-weight:700;
+  font-size:clamp(64px, 11vw, 186px);
+  line-height:0.9;
+  letter-spacing:-0.01em;
+  color:var(--amber);
+  text-align:center;
+  white-space:nowrap;
+}
+.sub{
+  font-family:'VT323','JetBrains Mono',monospace;
+  font-size:clamp(18px, 2vw, 32px);
+  letter-spacing:0.18em;
+  color:var(--amber);
+  opacity:0.9;
+  display:flex;align-items:center;gap:18px;
+}
+.sub .bar{
+  display:inline-block;width:180px;height:12px;background:rgba(255,179,71,0.12);
+  border:1px solid rgba(255,179,71,0.5);position:relative;
+}
+.sub .bar::after{
+  content:"";position:absolute;inset:0;width:var(--p,73%);background:var(--amber);
+  box-shadow:0 0 14px var(--amber);
+}
+
+/* footer */
+.footer{
+  display:grid;grid-template-columns:1fr 1fr 1fr;align-items:center;
+  font-size:clamp(11px,0.95vw,13px);
+  letter-spacing:0.32em;color:var(--dim);text-transform:uppercase;
+}
+.footer .c{text-align:center}
+.footer .r{text-align:right}
+
+/* random glitch bars layer */
+.bars{position:absolute;inset:0;z-index:4;pointer-events:none;mix-blend-mode:screen}
+.bar{
+  position:absolute;left:0;right:0;height:3px;background:var(--amber);opacity:0;
+  transform-origin:center;
+  filter:blur(0.4px);
+}
+
+/* noise overlay */
+canvas.noise{position:absolute;inset:0;z-index:5;pointer-events:none;mix-blend-mode:screen;opacity:0.25}
+
+/* ID at top right */
+.tag{position:fixed;top:22px;right:36px;z-index:10;font-family:'JetBrains Mono',monospace;font-size:11px;letter-spacing:0.28em;color:var(--amber);opacity:0.55;text-transform:uppercase}
+</style>
+<svg width="0" height="0" style="position:absolute">
+  <defs>
+    <filter id="barrel">
+      <feTurbulence type="fractalNoise" baseFrequency="0.0065" numOctaves="2" seed="7" result="warp"/>
+      <feDisplacementMap in="SourceGraphic" in2="warp" scale="10"/>
+    </filter>
+  </defs>
+</svg>
+</head>
+<body>
+<div class="tag">CH-07 · NTSC · 01987</div>
+<div class="crt">
+  <canvas class="noise" id="noise"></canvas>
+  <div class="bars" id="bars"></div>
+  <div class="screen">
+    <div class="marquee">
+      <div><span class="dot"></span>&nbsp;&nbsp;rec · signal acquired · ch-07</div>
+      <div>frontend effects lab / tape 004</div>
+    </div>
+
+    <div class="center">
+      <div class="binary" id="bin">0101 0111 1000 0011 · 1100 0110 0000 1011</div>
+      <div class="headline" id="title">SIGNAL&nbsp;LOST</div>
+      <div class="sub">
+        decrypting  <span class="bar" style="--p:73%"></span>  73%
+      </div>
+    </div>
+
+    <div class="footer">
+      <div>v0.1 · 17 apr 2026</div>
+      <div class="c">[ 04 / 10 ]</div>
+      <div class="r">tracking · stable</div>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ---- static noise ---- */
+const nc = document.getElementById('noise');
+const nctx = nc.getContext('2d');
+function resize(){ nc.width = window.innerWidth; nc.height = window.innerHeight; }
+window.addEventListener('resize', resize); resize();
+function drawNoise(){
+  const w=nc.width, h=nc.height;
+  const img = nctx.createImageData(w, h);
+  const d = img.data;
+  for(let i=0;i<d.length;i+=4){
+    const v = Math.random()*255|0;
+    d[i]=v; d[i+1]=v; d[i+2]=v; d[i+3]=30 + (Math.random()*60|0);
+  }
+  nctx.putImageData(img, 0, 0);
+}
+/* limit noise redraw to ~15fps for perf */
+setInterval(drawNoise, 70);
+
+/* ---- RGB split jitter ---- */
+const screen = document.querySelector('.screen');
+let splitTarget = 3, splitCur = 3;
+function tickSplit(){
+  splitCur += (splitTarget - splitCur) * 0.2;
+  screen.style.setProperty('--split-x', splitCur.toFixed(2)+'px');
+  requestAnimationFrame(tickSplit);
+}
+tickSplit();
+setInterval(()=>{
+  /* 80% calm, 20% spike */
+  if(Math.random()<0.2){ splitTarget = 7 + Math.random()*10; }
+  else { splitTarget = 2 + Math.random()*2; }
+}, 240);
+
+/* ---- headline glitch swap ---- */
+const titleEl = document.getElementById('title');
+const binEl = document.getElementById('bin');
+const titles = ['SIGNAL LOST', 'N0 C4RRIER', 'TAPE · 004', '█■░▓▒ ?', 'SIGNAL LOST', 'SIGNAL LOST', 'PLAY ▶  REC ●'];
+function randomBinary(len){
+  let s=''; for(let i=0;i<len;i++){ s += (Math.random()<0.5?'0':'1'); if((i+1)%4===0 && i!==len-1) s+=' '; }
+  return s;
+}
+function scheduleGlitch(){
+  const wait = 1200 + Math.random()*2400;
+  setTimeout(()=>{
+    const original = titleEl.textContent;
+    const swap = titles[Math.random()*titles.length | 0];
+    titleEl.textContent = swap;
+    binEl.textContent = randomBinary(20);
+    setTimeout(()=>{
+      titleEl.textContent = 'SIGNAL\u00a0LOST';
+      binEl.textContent = randomBinary(20);
+    }, 140 + Math.random()*140);
+    scheduleGlitch();
+  }, wait);
+}
+scheduleGlitch();
+
+/* rolling binary even when calm */
+setInterval(()=>{ if(Math.random()<0.6) binEl.textContent = randomBinary(20); }, 220);
+
+/* ---- random glitch bars ---- */
+const barsLayer = document.getElementById('bars');
+const barsPool = [];
+for(let i=0;i<6;i++){
+  const b = document.createElement('div');
+  b.className = 'bar';
+  barsLayer.appendChild(b);
+  barsPool.push(b);
+}
+function firBar(){
+  const b = barsPool[Math.random()*barsPool.length | 0];
+  b.style.top = (Math.random()*100).toFixed(1)+'%';
+  b.style.height = (2 + Math.random()*26).toFixed(1)+'px';
+  b.style.background = Math.random()<0.5 ? 'var(--amber)' : (Math.random()<0.5 ? 'var(--cyan)' : 'var(--magenta)');
+  b.style.opacity = (0.3 + Math.random()*0.6).toFixed(2);
+  b.style.transform = `translateX(${(Math.random()*30-15).toFixed(1)}px)`;
+  setTimeout(()=>{ b.style.opacity = 0; }, 80 + Math.random()*100);
+}
+setInterval(()=>{ if(Math.random()<0.6) firBar(); if(Math.random()<0.2){ firBar(); firBar(); } }, 420);
+
+/* occasional vertical roll — shift screen up briefly */
+const crt = document.querySelector('.crt');
+function rollTick(){
+  setTimeout(()=>{
+    crt.style.transform = `translateY(${-8 + Math.random()*-40}px)`;
+    setTimeout(()=>{ crt.style.transform = 'translateY(0)'; rollTick(); }, 60 + Math.random()*120);
+  }, 4000 + Math.random()*7000);
+}
+rollTick();
+</script>
+</body>
+</html>

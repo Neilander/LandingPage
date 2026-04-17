@@ -1,0 +1,670 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>frontend effects lab · immersive</title>
+<!--
+  沉浸式 9 页自播放: 两个 iframe 槽轮换 (current + incoming), 下一页 onload 后再开始过渡,
+  过渡完立刻卸载前一页 (src = about:blank) 保证任何时间最多 2 个 iframe 在跑 (过渡 ~1.3s),
+  稳态下只 1 个.
+  过渡风格 (随机挑一种,不重复上次):
+    - circle    : clip-path circle(0%→150%) from 50% 50% (classic iris)
+    - diagonal  : clip-path polygon 对角线清扫
+    - ink       : mask radial-gradient 从随机点扩散,羽化柔和,像墨水晕开
+    - scaleblur : new 从 scale 1.08 + blur 18px → 1/0; old 反向同时 fade
+  参考: codepen.io/jamieimpression/pen/mXVeGP (CSS mask slideshow),
+        codepen.io/team/keyframers/pen/jRaLgX (circular mask),
+        codepen.io/phucbui/pen/dqXWqN (ink bleed),
+        tympanus.net/codrops/2026/04/08/creating-custom-page-transitions-in-astro-with-barba-js-and-gsap/.
+-->
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<style>
+:root{
+  --paper:#efe7d6; --cream:#f6eddb; --ink:#1b1815; --ink-dim:#6e6657; --brick:#c64a2a;
+}
+@import url('https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght,SOFT,WONK@0,9..144,300..900,0..100,0..1;1,9..144,300..900,0..100,0..1&family=JetBrains+Mono:wght@400;600&display=swap');
+*{margin:0;padding:0;box-sizing:border-box}
+html,body{width:100%;height:100%;overflow:hidden;background:#000;color:var(--cream);font-family:'JetBrains Mono',monospace}
+
+.stage{position:fixed;inset:0;background:#000;overflow:hidden;z-index:1}
+.frame{position:absolute;inset:0;width:100%;height:100%;border:0;display:block;z-index:2;opacity:1}
+.frame.incoming{z-index:3;opacity:0}  /* critical: hidden until transition setup explicitly reveals, avoids first-paint flash */
+
+/* intro cover */
+.intro{
+  position:fixed;inset:0;z-index:100;background:#0a0706;color:var(--cream);
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:18px;
+  opacity:1;pointer-events:auto;transition:opacity 0.9s ease;
+}
+.intro.hide{opacity:0;pointer-events:none}
+.intro .eyebrow{font-family:'JetBrains Mono',monospace;font-size:11px;letter-spacing:0.4em;text-transform:uppercase;opacity:0.7}
+.intro h1{
+  font-family:'Fraunces',serif;font-weight:300;font-style:italic;
+  font-variation-settings:"opsz" 144,"SOFT" 80,"WONK" 1;
+  font-size:clamp(56px,9vw,128px);line-height:0.9;letter-spacing:-0.03em;text-align:center;max-width:14ch;
+}
+.intro h1 em{font-style:italic;color:var(--brick);font-variation-settings:"opsz" 144,"SOFT" 100,"WONK" 1}
+.intro .sub{max-width:500px;text-align:center;font-family:'Fraunces',serif;font-style:italic;font-size:17px;line-height:1.5;color:#d9cdb3;font-variation-settings:"opsz" 18,"WONK" 1}
+.intro .btns{display:flex;gap:10px;margin-top:16px}
+.intro button{
+  padding:14px 26px;border-radius:999px;border:1px solid var(--cream);
+  font-family:'JetBrains Mono',monospace;font-size:11px;letter-spacing:0.3em;text-transform:uppercase;
+  background:transparent;color:var(--cream);cursor:pointer;
+  transition:background 0.25s,color 0.25s;
+}
+.intro button:hover{background:var(--cream);color:#0a0706}
+.intro button.primary{background:var(--brick);border-color:var(--brick);color:#fff}
+.intro button.primary:hover{background:#fff;color:var(--brick);border-color:#fff}
+
+/* record mode: HUD fully hidden, no cursor, clean recording surface */
+body.recording{cursor:none}
+body.recording .hud{opacity:0 !important;pointer-events:none !important}
+.intro .hint{margin-top:22px;font-size:10px;letter-spacing:0.3em;opacity:0.45;text-transform:uppercase}
+
+/* HUD */
+.hud{position:fixed;inset:0;z-index:50;pointer-events:none;display:flex;flex-direction:column;justify-content:space-between;padding:24px 32px;opacity:0.92;transition:opacity 0.4s}
+.hud.dim{opacity:0.12}
+.hud .row{display:flex;justify-content:space-between;align-items:flex-start;gap:24px;pointer-events:none}
+.hud .row.bot{align-items:flex-end}
+.hud .row.top{display:grid;grid-template-columns:1fr auto 1fr;align-items:center}  /* 3-col so title is truly centered */
+.hud .row.top .title{justify-self:center}
+.hud .row.top .right{justify-self:end}
+.hud .title{color:var(--cream);font-family:'JetBrains Mono',monospace;font-size:11px;letter-spacing:0.22em;text-transform:uppercase;mix-blend-mode:difference;display:flex;align-items:center;gap:14px}
+.hud .title b{font-family:'Fraunces',serif;font-style:italic;font-weight:500;font-size:22px;letter-spacing:0;font-variation-settings:"opsz" 22,"WONK" 1;color:var(--cream);text-transform:none}
+.hud .title .n{opacity:0.6}
+
+.hud .right{display:flex;gap:8px;pointer-events:auto}
+.hud .btn{
+  padding:8px 14px;border-radius:999px;border:1px solid rgba(246,237,219,0.35);
+  background:rgba(10,7,5,0.55);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);
+  color:var(--cream);font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:0.26em;text-transform:uppercase;
+  cursor:pointer;transition:background 0.2s,color 0.2s,border-color 0.2s;line-height:1;
+}
+.hud .btn:hover{background:var(--cream);color:#0a0706;border-color:var(--cream)}
+.hud .btn.x{padding:8px 10px}
+
+.hud .dots{display:flex;gap:6px;pointer-events:auto}
+.hud .dot{width:8px;height:8px;border-radius:50%;border:1px solid rgba(246,237,219,0.55);background:transparent;cursor:pointer;transition:background 0.25s}
+.hud .dot.on{background:var(--cream)}
+/* progress bar hidden in manual mode — label now shows "ready · last: X" */
+.hud .progress{display:none}
+
+.hud .label{color:rgba(246,237,219,0.7);font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:0.26em;text-transform:uppercase;mix-blend-mode:difference}
+
+/* preview chip row (quick test) */
+.hud .picker{display:flex;gap:6px;pointer-events:auto;flex-wrap:wrap;align-items:center;margin-top:10px}
+.hud .picker .plabel{color:rgba(246,237,219,0.55);font-family:'JetBrains Mono',monospace;font-size:9px;letter-spacing:0.28em;text-transform:uppercase;margin-right:6px}
+.hud .picker .tbtn{
+  padding:5px 10px;border-radius:999px;border:1px solid rgba(246,237,219,0.28);
+  background:rgba(10,7,5,0.55);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);
+  color:var(--cream);font-family:'JetBrains Mono',monospace;font-size:9px;letter-spacing:0.22em;text-transform:uppercase;
+  cursor:pointer;transition:background 0.2s,color 0.2s,border-color 0.2s;line-height:1;
+}
+.hud .picker .tbtn:hover{background:var(--cream);color:#0a0706;border-color:var(--cream)}
+.hud .picker .tbtn.last{border-color:var(--brick);color:var(--brick)}
+.hud .picker .tbtn.random{border-style:dashed}
+
+/* picker chip pinned for current gap */
+.hud .picker .tbtn.pinned{background:var(--brick);color:#fff;border-color:var(--brick)}
+.hud .picker .tbtn.pinned:hover{background:#fff;color:var(--brick)}
+
+/* status strip (saved sequence summary + io) */
+.hud .status{display:flex;gap:10px;align-items:center;pointer-events:auto;margin-top:8px;flex-wrap:wrap}
+.hud .status .plabel{color:rgba(246,237,219,0.55);font-family:'JetBrains Mono',monospace;font-size:9px;letter-spacing:0.28em;text-transform:uppercase}
+.hud .status .seqline{
+  font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:0.04em;
+  color:rgba(246,237,219,0.78);background:rgba(10,7,5,0.55);border:1px solid rgba(246,237,219,0.15);
+  padding:6px 10px;border-radius:8px;backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);
+  white-space:nowrap;overflow-x:auto;max-width:calc(100vw - 420px);
+}
+.hud .status .seqline b{color:var(--brick);font-weight:600}
+.hud .status .seqline .empty{color:rgba(246,237,219,0.3)}
+.hud .status .io{margin-left:auto;display:flex;gap:6px}
+.hud .status button{
+  padding:5px 10px;border-radius:999px;border:1px solid rgba(246,237,219,0.28);
+  background:rgba(10,7,5,0.55);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);
+  color:var(--cream);font-family:'JetBrains Mono',monospace;font-size:9px;letter-spacing:0.22em;text-transform:uppercase;
+  cursor:pointer;transition:background 0.2s,color 0.2s,border-color 0.2s;line-height:1;
+}
+.hud .status button:hover{background:var(--cream);color:#0a0706;border-color:var(--cream)}
+
+/* auto-hide cursor after idle */
+body.idle{cursor:none}
+
+/* ink svg filter (shared) */
+</style>
+</head>
+<body>
+
+<div class="stage" id="stage"></div>
+
+<div class="hud" id="hud">
+  <div class="row top">
+    <div class="left"></div>
+    <div class="title">
+      <span class="n" id="hN">N° 001 · 01 / 09</span>
+      <b id="hTitle">—</b>
+    </div>
+    <div class="right">
+      <button class="btn" id="bPrev" title="prev (←)">◀ prev</button>
+      <button class="btn" id="bNext" title="next (→)">next ▶</button>
+      <button class="btn x" id="bExit" title="exit (esc)">exit ✕</button>
+    </div>
+  </div>
+  <div class="row bot">
+    <div class="dots" id="dots"></div>
+    <div class="progress"><i id="pBar"></i></div>
+    <div class="label" id="pLabel">— s · auto</div>
+  </div>
+  <div class="picker" id="picker">
+    <span class="plabel" id="pickerLabel">click → preview &amp; save for gap —</span>
+    <button class="tbtn random" data-style="__random">random</button>
+  </div>
+  <div class="status" id="status">
+    <span class="plabel">saved</span>
+    <div class="seqline" id="seqline">—</div>
+    <div class="io">
+      <button id="seqReset">all random</button>
+      <button id="seqExport">export</button>
+      <button id="seqImport">import</button>
+    </div>
+  </div>
+</div>
+
+<div class="intro" id="intro">
+  <div class="eyebrow">frontend effects lab · immersive</div>
+  <h1>nine pages, <em>auto-turned.</em></h1>
+  <div class="sub">A quiet reel of the lab — entirely manual. Click any transition chip to preview it; next / prev buttons step through the pages. Only one runs at a time.</div>
+  <div class="btns">
+    <button id="start">preview ▶</button>
+    <button id="record" class="primary">record mode ●</button>
+  </div>
+  <div class="hint">preview = manual, click chips · record = auto 4s · esc exit</div>
+</div>
+
+<script>
+const SLIDES = [
+  { slug:'11_liquid-metal-text',   title:'Liquid Forge' },
+  { slug:'12_particle-nebula',     title:'Particle Nebula' },
+  { slug:'14_crt-glitch',          title:'Signal Lost' },
+  { slug:'16_procedural-sky',      title:'Slow Skies' },
+  { slug:'17_editorial-hero',      title:'Play It Slow' },
+  { slug:'19_organic-blob-hero',   title:'Make Slowly' },
+  { slug:'20_product-cards',       title:'Slow Goods' },
+  { slug:'21_currents',            title:'Currents · no reference' },
+];
+
+const DWELL = 2500;           /* ms per page */
+const TRANS = 1800;           /* ms for transition */
+const TRANS_STYLES = ['circle','diagonal','ink','scaleblur','wipeV','wipeH'];  // conic removed per taste
+
+const stage  = document.getElementById('stage');
+const hN     = document.getElementById('hN');
+const hTitle = document.getElementById('hTitle');
+const pBar   = document.getElementById('pBar');
+const pLabel = document.getElementById('pLabel');
+const hud    = document.getElementById('hud');
+const dots   = document.getElementById('dots');
+
+/* build dots */
+SLIDES.forEach((s,i) => {
+  const d = document.createElement('button');
+  d.className = 'dot';
+  d.title = s.title;
+  d.addEventListener('click', ()=>jumpTo(i));
+  dots.appendChild(d);
+});
+
+let currIdx = 0;
+let currFrame = null;
+let paused = false;
+let lastStyle = null;
+let forcedStyle = null;   // when user clicks a transition chip, next swap uses this
+let dwellTimer = null;
+let progressStart = 0;
+let progressAt = 0;
+let progressDur = DWELL;
+let transitioning = false;
+
+function setHUD(idx){
+  const n = String(idx+1).padStart(2,'0');
+  const t = String(SLIDES.length).padStart(2,'0');
+  hN.textContent = `N° ${String(idx+11).padStart(3,'0')} · ${n} / ${t}`;
+  hTitle.textContent = SLIDES[idx].title;
+  [...dots.children].forEach((d,i)=>d.classList.toggle('on', i===idx));
+}
+
+function createFrame(slug){
+  const f = document.createElement('iframe');
+  f.className = 'frame';
+  f.src = 'implementations/' + slug + '.html';
+  f.setAttribute('allow', 'autoplay; pointer-lock');
+  return f;
+}
+
+/* ---------- transitions ---------- */
+/* --- sequence: per-gap transition assignment, persisted in localStorage ---
+   seq[i] = transition style used when advancing forward from slide i to slide (i+1) mod N.
+   Value '__random' means "pick random at runtime".
+   Length = SLIDES.length (the last entry covers slide N-1 → slide 0 wrap). */
+const SEQ_KEY = 'fxlab-show-seq-v2';
+let seq = (() => {
+  try {
+    const s = localStorage.getItem(SEQ_KEY);
+    if(!s) return SLIDES.map(()=>'__random');
+    const a = JSON.parse(s);
+    if(!Array.isArray(a)) return SLIDES.map(()=>'__random');
+    // pad / truncate to current slide count
+    const out = SLIDES.map((_,i) => a[i] && (TRANS_STYLES.includes(a[i]) || a[i]==='__random') ? a[i] : '__random');
+    return out;
+  } catch { return SLIDES.map(()=>'__random'); }
+})();
+function saveSeq(){ try { localStorage.setItem(SEQ_KEY, JSON.stringify(seq)); } catch(_){} }
+function setSeqAt(i, style){
+  seq[i] = style;
+  saveSeq();
+  refreshSeqUI();
+}
+function cycleSeqAt(i, dir){
+  const options = ['__random', ...TRANS_STYLES];
+  const cur = seq[i] || '__random';
+  const idx = options.indexOf(cur);
+  const next = (idx + (dir || 1) + options.length) % options.length;
+  setSeqAt(i, options[next]);
+}
+function refreshSeqUI(){
+  /* picker: pin the chip matching seq[currIdx] (the style saved for current gap) */
+  const curStyle = seq[currIdx] || '__random';
+  document.querySelectorAll('.picker .tbtn').forEach(b => {
+    b.classList.toggle('pinned',
+      (b.dataset.style === curStyle) ||
+      (b.dataset.style === '__random' && curStyle === '__random')
+    );
+  });
+  /* label: which gap is being edited */
+  const pl = document.getElementById('pickerLabel');
+  if(pl){
+    const n1 = String(currIdx+1).padStart(2,'0');
+    const n2 = String((currIdx+1)%SLIDES.length + 1).padStart(2,'0');
+    pl.innerHTML = `click → preview &amp; save for gap <b style="color:var(--cream)">${n1}→${n2}</b>`;
+  }
+  /* status line: summary of saved seq */
+  const line = document.getElementById('seqline');
+  if(line){
+    const parts = seq.map((v,i) => {
+      const n1 = String(i+1).padStart(2,'0');
+      const n2 = String((i+1)%SLIDES.length + 1).padStart(2,'0');
+      const cur = i === currIdx ? 'cur' : '';
+      if(v === '__random' || !v){
+        return `<span class="${cur?'':'empty'}">${n1}→${n2}: <span class="empty">—</span></span>`;
+      }
+      return `<span>${n1}→${n2}: ${i===currIdx?'<b>'+v+'</b>':v}</span>`;
+    });
+    line.innerHTML = parts.join(' &nbsp;·&nbsp; ');
+  }
+}
+
+function pickStyle(fromIdx, toIdx){
+  let s;
+  if(forcedStyle){ s = forcedStyle; forcedStyle = null; }
+  else if(autoMode){
+    /* record mode: consult the sequence */
+    // Forward step i → i+1 uses seq[i]. Backward step i → i-1 uses seq[i-1].
+    const useIdx = (toIdx === (fromIdx+1) % SLIDES.length) ? fromIdx
+                 : (toIdx === (fromIdx-1+SLIDES.length) % SLIDES.length) ? toIdx
+                 : fromIdx; // any other jump: best-effort
+    const assigned = seq[useIdx];
+    if(assigned && assigned !== '__random'){
+      s = assigned;
+    } else {
+      do { s = TRANS_STYLES[Math.floor(Math.random()*TRANS_STYLES.length)]; }
+      while(s === lastStyle);
+    }
+  }
+  else {
+    /* preview manual: full random unless forced */
+    do { s = TRANS_STYLES[Math.floor(Math.random()*TRANS_STYLES.length)]; }
+    while(s === lastStyle);
+  }
+  lastStyle = s;
+  markLastChip(s);
+  return s;
+}
+
+function markLastChip(s){
+  document.querySelectorAll('.picker .tbtn').forEach(b => {
+    b.classList.toggle('last', b.dataset.style === s);
+  });
+}
+
+function runTransition(oldF, newF, done, fromIdx, toIdx){
+  const style = pickStyle(fromIdx, toIdx);
+  newF.style.willChange = 'clip-path, transform, filter, opacity, mask-image';
+  oldF.style.willChange = 'transform, filter, opacity';
+
+  /* tweening helpers */
+  const easeInOut = t => t<0.5 ? 2*t*t : 1 - Math.pow(-2*t+2,2)/2;
+  const easeOut   = t => 1 - Math.pow(1-t, 3);
+  let rafId = null;
+
+  /* -------- SETUP: write initial state SYNCHRONOUSLY while opacity=0,
+              then flip opacity to 1 in same frame so first paint is already masked -------- */
+  newF.style.transition = 'none';
+  if(style === 'circle'){
+    newF.style.clipPath = 'circle(0% at 50% 50%)';
+  }
+  else if(style === 'diagonal'){
+    newF.style.clipPath = 'polygon(100% 0%, 100% 0%, 100% 100%, 100% 100%)';
+  }
+  else if(style === 'ink'){
+    const cx = 20 + Math.random()*60, cy = 20 + Math.random()*60;
+    newF.dataset.cx = cx; newF.dataset.cy = cy;
+    const m0 = `radial-gradient(ellipse 0% 0% at ${cx}% ${cy}%, #000 0%, transparent 10%)`;
+    newF.style.webkitMaskImage = m0; newF.style.maskImage = m0;
+  }
+  else if(style === 'scaleblur'){
+    newF.style.transform = 'scale(1.06)';
+    newF.style.filter = 'blur(22px)';
+    /* incoming visually opaque but blurred+clipped by 0-opacity, we'll crossfade via opacity */
+  }
+  else if(style === 'wipeV'){
+    /* reveal from top downward with a soft edge band */
+    const m0 = `linear-gradient(to bottom, #000 0%, #000 0%, transparent 0%, transparent 100%)`;
+    newF.style.webkitMaskImage = m0; newF.style.maskImage = m0;
+  }
+  else if(style === 'wipeH'){
+    /* reveal from left rightward */
+    const m0 = `linear-gradient(to right, #000 0%, #000 0%, transparent 0%, transparent 100%)`;
+    newF.style.webkitMaskImage = m0; newF.style.maskImage = m0;
+  }
+  else if(style === 'conic'){
+    /* sweep like a clock hand from -90deg (12 o'clock) */
+    const m0 = `conic-gradient(from -90deg at 50% 50%, #000 0deg, transparent 0deg, transparent 360deg)`;
+    newF.style.webkitMaskImage = m0; newF.style.maskImage = m0;
+  }
+
+  /* force style flush BEFORE revealing opacity — first paint is already masked */
+  void newF.offsetWidth;
+  newF.style.opacity = '1';
+
+  /* SCALEBLUR uses opacity tween, so start it at 0 again to fade in */
+  if(style === 'scaleblur'){ newF.style.opacity = '0'; void newF.offsetWidth; }
+
+  /* -------- ANIMATE -------- */
+  requestAnimationFrame(() => {
+    const t0 = performance.now();
+
+    if(style === 'circle'){
+      newF.style.transition = `clip-path ${TRANS}ms cubic-bezier(0.76, 0, 0.24, 1)`;
+      newF.style.clipPath = 'circle(120% at 50% 50%)';
+    }
+    else if(style === 'diagonal'){
+      newF.style.transition = `clip-path ${TRANS}ms cubic-bezier(0.7, 0, 0.3, 1)`;
+      newF.style.clipPath = 'polygon(0% 0%, 100% 0%, 100% 100%, 0% 100%)';
+      oldF.style.transition = `transform ${TRANS}ms cubic-bezier(0.7, 0, 0.3, 1)`;
+      oldF.style.transform = 'translateX(-4%)';
+    }
+    else if(style === 'ink'){
+      const cx = parseFloat(newF.dataset.cx), cy = parseFloat(newF.dataset.cy);
+      (function tween(){
+        const p = Math.min(1, (performance.now()-t0)/TRANS);
+        const r = easeInOut(p)*170;
+        const feather = 26;
+        const m = `radial-gradient(ellipse ${r*1.15}% ${r*0.92}% at ${cx}% ${cy}%, #000 ${Math.max(0,r-feather)}%, rgba(0,0,0,0.35) ${r}%, transparent ${r+feather}%)`;
+        newF.style.webkitMaskImage = m; newF.style.maskImage = m;
+        if(p<1) rafId = requestAnimationFrame(tween);
+      })();
+    }
+    else if(style === 'scaleblur'){
+      oldF.style.transition = `transform ${TRANS}ms cubic-bezier(0.7,0,0.3,1), filter ${TRANS}ms cubic-bezier(0.7,0,0.3,1), opacity ${TRANS}ms linear`;
+      oldF.style.transform = 'scale(0.94)';
+      oldF.style.filter = 'blur(18px)';
+      oldF.style.opacity = '0';
+      newF.style.transition = `transform ${TRANS}ms cubic-bezier(0.7,0,0.3,1), filter ${TRANS}ms cubic-bezier(0.7,0,0.3,1), opacity ${TRANS}ms linear`;
+      newF.style.opacity = '1';
+      newF.style.transform = 'scale(1)';
+      newF.style.filter = 'blur(0)';
+    }
+    else if(style === 'wipeV'){
+      (function tween(){
+        const p = Math.min(1, (performance.now()-t0)/TRANS);
+        const e = easeInOut(p)*100;
+        const band = 7;
+        const m = `linear-gradient(to bottom, #000 0%, #000 ${Math.max(0,e-band)}%, transparent ${e}%, transparent 100%)`;
+        newF.style.webkitMaskImage = m; newF.style.maskImage = m;
+        if(p<1) rafId = requestAnimationFrame(tween);
+      })();
+    }
+    else if(style === 'wipeH'){
+      (function tween(){
+        const p = Math.min(1, (performance.now()-t0)/TRANS);
+        const e = easeInOut(p)*100;
+        const band = 7;
+        const m = `linear-gradient(to right, #000 0%, #000 ${Math.max(0,e-band)}%, transparent ${e}%, transparent 100%)`;
+        newF.style.webkitMaskImage = m; newF.style.maskImage = m;
+        if(p<1) rafId = requestAnimationFrame(tween);
+      })();
+    }
+    else if(style === 'conic'){
+      (function tween(){
+        const p = Math.min(1, (performance.now()-t0)/TRANS);
+        const deg = easeOut(p)*360;
+        const band = 12;
+        const m = `conic-gradient(from -90deg at 50% 50%, #000 0deg, #000 ${Math.max(0,deg-band)}deg, transparent ${deg}deg, transparent 360deg)`;
+        newF.style.webkitMaskImage = m; newF.style.maskImage = m;
+        if(p<1) rafId = requestAnimationFrame(tween);
+      })();
+    }
+  });
+
+  setTimeout(()=>{
+    if(rafId) cancelAnimationFrame(rafId);
+    /* reset new frame styles so it behaves like a normal iframe from here */
+    newF.style.transition = '';
+    newF.style.clipPath = '';
+    newF.style.transform = '';
+    newF.style.filter = '';
+    newF.style.opacity = '';
+    newF.style.webkitMaskImage = '';
+    newF.style.maskImage = '';
+    newF.style.willChange = '';
+    done();
+  }, TRANS + 100);
+}
+
+/* ---------- scheduling ---------- */
+function tickProgress(){
+  if(transitioning){
+    pLabel.textContent = `transition · ${lastStyle}`;
+  } else {
+    pLabel.textContent = lastStyle ? `ready · last: ${lastStyle}` : 'ready · click a transition';
+  }
+  requestAnimationFrame(tickProgress);
+}
+requestAnimationFrame(tickProgress);
+
+let autoMode = false;
+function scheduleAdvance(){
+  clearTimeout(dwellTimer);
+  progressStart = performance.now();
+  progressAt = 0;
+  pBar.style.width = '0%';
+  if(!autoMode) return;                          // manual: chips / next / prev drive
+  dwellTimer = setTimeout(()=>advance(1), DWELL); // record: auto after dwell
+}
+
+function advance(dir){
+  if(transitioning) return;
+  transitioning = true;
+  const nextIdx = (currIdx + dir + SLIDES.length) % SLIDES.length;
+  const nextF = createFrame(SLIDES[nextIdx].slug);
+  nextF.classList.add('incoming');
+  stage.appendChild(nextF);
+
+  const fromIdx = currIdx;
+  const onReady = () => {
+    setHUD(nextIdx);
+    runTransition(currFrame, nextF, ()=>{
+      stage.removeChild(currFrame);
+      nextF.classList.remove('incoming');
+      currFrame = nextF;
+      currIdx = nextIdx;
+      transitioning = false;
+      progressDur = DWELL;
+      refreshSeqUI();
+      scheduleAdvance();
+    }, fromIdx, nextIdx);
+  };
+  /* wait for load but also have fallback so we don't hang on slow iframes */
+  let fired = false;
+  const go = () => { if(!fired){ fired = true; onReady(); } };
+  nextF.addEventListener('load', () => setTimeout(go, 80));
+  setTimeout(go, 2000);
+}
+
+function jumpTo(idx){
+  if(transitioning || idx === currIdx) return;
+  const dir = idx > currIdx ? 1 : -1;
+  /* set target directly */
+  transitioning = true;
+  const fromIdx = currIdx;
+  const nextF = createFrame(SLIDES[idx].slug);
+  nextF.classList.add('incoming');
+  stage.appendChild(nextF);
+  const onReady = () => {
+    setHUD(idx);
+    runTransition(currFrame, nextF, ()=>{
+      stage.removeChild(currFrame);
+      nextF.classList.remove('incoming');
+      currFrame = nextF;
+      currIdx = idx;
+      transitioning = false;
+      progressDur = DWELL;
+      refreshSeqUI();
+      scheduleAdvance();
+    }, fromIdx, idx);
+  };
+  let fired = false;
+  const go = () => { if(!fired){ fired = true; onReady(); } };
+  nextF.addEventListener('load', () => setTimeout(go, 80));
+  setTimeout(go, 2000);
+}
+
+function togglePause(){
+  paused = !paused;
+  document.getElementById('bPause').textContent = paused ? '▶ play' : '⏸ pause';
+  if(paused){
+    clearTimeout(dwellTimer);
+    progressAt += (performance.now() - progressStart);
+  } else {
+    progressStart = performance.now();
+    const remain = Math.max(0, progressDur - progressAt);
+    dwellTimer = setTimeout(()=>advance(1), remain);
+  }
+}
+
+/* ---------- controls ---------- */
+document.getElementById('bPrev').addEventListener('click', ()=>advance(-1));
+document.getElementById('bNext').addEventListener('click', ()=>advance(1));
+
+/* build preview chips (one-shot preview of a style) */
+const picker = document.getElementById('picker');
+const randomChip = picker.querySelector('[data-style="__random"]');
+TRANS_STYLES.forEach(s => {
+  const b = document.createElement('button');
+  b.className = 'tbtn';
+  b.dataset.style = s;
+  b.textContent = s;
+  picker.insertBefore(b, randomChip);
+});
+picker.addEventListener('click', e => {
+  const btn = e.target.closest('.tbtn');
+  if(!btn) return;
+  const s = btn.dataset.style;
+  if(s === '__random'){
+    /* unset the current gap's saved style */
+    setSeqAt(currIdx, '__random');
+    forcedStyle = null;
+    return;
+  }
+  /* preview AND save for current gap in one click */
+  setSeqAt(currIdx, s);
+  forcedStyle = s;
+  advance(1);
+});
+
+refreshSeqUI();
+
+document.getElementById('seqReset').addEventListener('click', ()=>{
+  if(!confirm('Reset all gaps to random?')) return;
+  seq = SLIDES.map(()=>'__random');
+  saveSeq();
+  refreshSeqUI();
+});
+document.getElementById('seqExport').addEventListener('click', async ()=>{
+  const data = {
+    version: 2,
+    dwell_ms: DWELL,
+    trans_ms: TRANS,
+    slides: SLIDES.map(s => s.slug),
+    sequence: seq,
+  };
+  const json = JSON.stringify(data, null, 2);
+  try {
+    await navigator.clipboard.writeText(json);
+    alert(`Copied to clipboard:\n\n${json}`);
+  } catch {
+    prompt('Copy this JSON:', json);
+  }
+});
+document.getElementById('seqImport').addEventListener('click', ()=>{
+  const raw = prompt('Paste config JSON:');
+  if(!raw) return;
+  try {
+    const data = JSON.parse(raw);
+    if(!Array.isArray(data.sequence)) return alert('Missing "sequence" array.');
+    seq = SLIDES.map((_,i) => {
+      const v = data.sequence[i];
+      return (v && (TRANS_STYLES.includes(v) || v === '__random')) ? v : '__random';
+    });
+    saveSeq();
+    refreshSeqUI();
+  } catch(e){ alert('Invalid JSON: ' + e.message); }
+});
+document.getElementById('bExit').addEventListener('click', ()=>{ location.href='index.html'; });
+
+document.addEventListener('keydown', e => {
+  if(e.key === 'ArrowRight') advance(1);
+  else if(e.key === 'ArrowLeft') advance(-1);
+  else if(e.key === 'Escape') location.href='index.html';
+});
+
+/* auto-dim HUD */
+let hudTimer;
+function wakeHUD(){
+  hud.classList.remove('dim');
+  document.body.classList.remove('idle');
+  clearTimeout(hudTimer);
+  hudTimer = setTimeout(()=>{ hud.classList.add('dim'); document.body.classList.add('idle'); }, 2800);
+}
+['pointermove','pointerdown','keydown'].forEach(ev => window.addEventListener(ev, wakeHUD));
+wakeHUD();
+
+/* ---------- start ---------- */
+function boot(mode){
+  autoMode = (mode === 'record');
+  document.getElementById('intro').classList.add('hide');
+  if(autoMode){ document.body.classList.add('recording'); }
+  currFrame = createFrame(SLIDES[0].slug);
+  stage.appendChild(currFrame);
+  setHUD(0);
+  currFrame.addEventListener('load', () => {
+    progressDur = DWELL;
+    scheduleAdvance();
+  });
+}
+document.getElementById('start').addEventListener('click', ()=>boot('preview'));
+document.getElementById('record').addEventListener('click', ()=>boot('record'));
+</script>
+</body>
+</html>

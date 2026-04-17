@@ -1,0 +1,269 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>frontend effects lab · 16 · slow skies</title>
+<!--
+  参考: shadertoy.com/view/Ws3XRs (Basic Procedural Noise Terrain),
+        shadertoy.com/view/XslGRr (Íñigo Quílez Clouds),
+        blog.demofox.org/2017/11/26/dissecting-tiny-clouds (极简 fbm 云).
+  技术: vanilla WebGL fullscreen fragment-only shader;
+        上屏 2/3 天空 (zenith→horizon 色阶 + fbm 云层 drift + 太阳 smoothstep + 太阳侧边云发光),
+        下屏 1/3 三层山脊剪影 (每层 fbm(x) heightmap, 近山更深色), 山体 y 比较;
+        全局大气散射 mix(zenith, horizon, pow(1-alt, 2)), vignette + grain + filmic.
+  观感: 沉静晚霞, 暗紫天顶 + 粉橙地平线 + 金色太阳 + 缓慢漂移的云, 脚下起伏山影. 静态截图即刻发 ins,
+        动起来云在呼吸. Fraunces 斜体大字叠加,有编辑设计味.
+-->
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<style>
+:root{
+  --ink:#f8f1e2; --ink-dim:#c9b8a2;
+  --gold:#ffc46b; --violet:#1a0d3a; --rose:#ffae70;
+}
+@import url('https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300..900;1,9..144,300..900&family=JetBrains+Mono:wght@400;600&display=swap');
+*{margin:0;padding:0;box-sizing:border-box}
+html,body{width:100%;height:100%;overflow:hidden;background:var(--violet);color:var(--ink);font-family:'Fraunces',serif}
+canvas#gl{position:fixed;inset:0;width:100%;height:100%;display:block}
+
+.ui{position:fixed;inset:0;pointer-events:none;display:flex;flex-direction:column;justify-content:space-between;padding:36px 44px;z-index:5}
+.row{display:flex;justify-content:space-between;align-items:flex-end;gap:24px;font-family:'JetBrains Mono',monospace;font-size:12px;letter-spacing:0.22em;text-transform:uppercase;color:var(--ink);opacity:0.88;mix-blend-mode:screen}
+.title{font-size:11px;letter-spacing:0.28em}
+
+.hero{
+  position:fixed;
+  left:0;right:0;top:20vh;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  pointer-events:none;z-index:4;text-align:center;
+  color:var(--ink);
+}
+.hero .eyebrow{
+  font-family:'JetBrains Mono',monospace;font-size:11px;letter-spacing:0.4em;
+  opacity:0.7;text-transform:uppercase;margin-bottom:20px;
+}
+.hero h1{
+  font-family:'Fraunces',serif;
+  font-weight:300;font-style:italic;
+  font-variation-settings:"opsz" 144, "SOFT" 80, "WONK" 1;
+  font-size:clamp(64px, 12vw, 200px);
+  line-height:0.85;letter-spacing:-0.04em;
+  color:var(--ink);
+  text-shadow: 0 2px 36px rgba(20,10,40,0.4);
+}
+.hero h1 .amp{
+  display:inline-block;padding:0 0.04em;color:var(--gold);
+  font-variation-settings:"opsz" 144, "SOFT" 100, "WONK" 1;
+}
+.hero .sub{
+  margin-top:28px;
+  font-family:'Fraunces',serif;font-style:italic;font-weight:400;
+  font-size:clamp(17px, 1.7vw, 22px);
+  letter-spacing:0;max-width:520px;line-height:1.45;
+  color:var(--ink);opacity:0.9;
+}
+.flag{position:fixed;left:44px;bottom:44px;z-index:6;display:flex;flex-direction:column;gap:4px;font-family:'JetBrains Mono',monospace;font-size:11px;letter-spacing:0.24em;text-transform:uppercase;color:var(--ink);opacity:0.85;mix-blend-mode:screen}
+.flag b{font-weight:600;font-size:14px;letter-spacing:0.32em}
+</style>
+</head>
+<body>
+<canvas id="gl"></canvas>
+<div class="hero">
+  <div class="eyebrow">no. 16 · slow skies · procedural</div>
+  <h1>a long <span class="amp">⟊</span> quiet sky</h1>
+  <div class="sub">Fragment shader, five octaves of fractal brownian motion, one sun. It breathes.</div>
+</div>
+<div class="ui">
+  <div class="row">
+    <div class="title">frontend effects lab</div>
+    <div class="title">[ 06 / 10 ]</div>
+  </div>
+  <div class="row">
+    <div class="title">slow skies</div>
+    <div class="title">17 apr 2026</div>
+  </div>
+</div>
+
+<script>
+const canvas=document.getElementById('gl');
+const gl=canvas.getContext('webgl',{antialias:true, premultipliedAlpha:false});
+if(!gl){ document.body.innerHTML='<p style="padding:40px;font-family:monospace">WebGL not available.</p>'; throw 0; }
+
+const VS=`attribute vec2 aPos; void main(){ gl_Position=vec4(aPos,0.,1.);}`;
+const FS=`
+precision highp float;
+uniform vec2  uRes;
+uniform float uTime;
+
+float h21(vec2 p){ p=fract(p*vec2(123.34,456.21)); p+=dot(p,p+45.32); return fract(p.x*p.y); }
+float h11(float x){ return fract(sin(x*78.233)*43758.5453); }
+float n2(vec2 p){
+  vec2 i=floor(p), f=fract(p);
+  float a=h21(i), b=h21(i+vec2(1,0)), c=h21(i+vec2(0,1)), d=h21(i+vec2(1,1));
+  vec2 u=f*f*(3.-2.*f);
+  return mix(a,b,u.x)+(c-a)*u.y*(1.-u.x)+(d-b)*u.x*u.y;
+}
+float fbm(vec2 p){
+  float v=0., a=0.5;
+  mat2 R=mat2(0.8,-0.6,0.6,0.8);
+  for(int i=0;i<5;i++){ v+=a*n2(p); p=R*p*2.; a*=0.5; }
+  return v;
+}
+/* 1D fbm for terrain heightmap */
+float n1(float x){
+  float i=floor(x), f=fract(x);
+  float a=h11(i), b=h11(i+1.0);
+  float u=f*f*(3.-2.*f);
+  return mix(a,b,u);
+}
+float fbm1(float x){
+  float v=0., a=0.5;
+  for(int i=0;i<6;i++){ v+=a*n1(x); x*=2.03; a*=0.5; }
+  return v;
+}
+
+vec3 skyGradient(float alt){
+  /* alt: 0 at horizon, 1 at zenith */
+  vec3 zenith  = vec3(0.10, 0.05, 0.22);   /* deep violet */
+  vec3 midSky  = vec3(0.36, 0.14, 0.38);   /* plum */
+  vec3 horizon = vec3(1.00, 0.68, 0.44);   /* rose-orange */
+  float t = clamp(alt, 0.0, 1.0);
+  vec3 lower = mix(horizon, midSky, smoothstep(0.0, 0.45, t));
+  return mix(lower, zenith, smoothstep(0.4, 1.0, t));
+}
+
+void main(){
+  vec2 uv = gl_FragCoord.xy / uRes.xy;
+  float ar = uRes.x / uRes.y;
+
+  /* horizon at y = 0.38 (below is land, above is sky) */
+  float hY = 0.38;
+  float t  = uTime;
+
+  vec3 col;
+
+  if(uv.y > hY){
+    /* ---- SKY ---- */
+    float alt = (uv.y - hY) / (1.0 - hY);
+    vec3 sky = skyGradient(alt);
+
+    /* sun: fixed low position */
+    vec2 sunPos = vec2(0.72, hY + 0.08);
+    float sunDist = distance(vec2(uv.x*ar, uv.y), vec2(sunPos.x*ar, sunPos.y));
+    float sun  = smoothstep(0.050, 0.038, sunDist);
+    float halo = exp(-sunDist*6.0) * 0.8;
+    float halo2= exp(-sunDist*1.6) * 0.35;
+
+    vec3 sunCol  = vec3(1.0, 0.92, 0.78);
+    vec3 sunGlow = vec3(1.0, 0.78, 0.52);
+    vec3 sunFar  = vec3(1.0, 0.55, 0.45);
+
+    sky += sun  * sunCol * 2.5;
+    sky += halo * sunGlow;
+    sky += halo2* sunFar;
+
+    /* clouds: 2 layers drifting */
+    vec2 cuv = vec2(uv.x*ar, (uv.y - hY)*1.6);
+    /* perspective squash near horizon */
+    float pers = 1.0 / max(alt*0.8 + 0.12, 0.12);
+    cuv.x *= pers*0.35;
+    cuv.y *= pers*0.6;
+
+    float cloud1 = fbm(cuv + vec2(t*0.05, 0.0));
+    cloud1 = smoothstep(0.45, 0.85, cloud1);
+    float cloud2 = fbm(cuv*0.6 + vec2(t*0.02, 2.0));
+    cloud2 = smoothstep(0.50, 0.90, cloud2);
+
+    /* cloud color: lit on sun side */
+    float sunFacing = 1.0 - clamp(distance(vec2(uv.x*ar, uv.y), vec2(sunPos.x*ar, sunPos.y)) / 0.8, 0.0, 1.0);
+    vec3 cloudLit    = mix(vec3(0.55,0.32,0.38), vec3(1.0,0.80,0.58), sunFacing);
+    vec3 cloudShadow = vec3(0.18,0.10,0.22);
+    vec3 cloudC1 = mix(cloudShadow, cloudLit, 0.7);
+    vec3 cloudC2 = mix(cloudShadow, cloudLit, 0.45);
+
+    /* fade high clouds into zenith */
+    float hFade = smoothstep(0.9, 0.3, alt);
+    sky = mix(sky, cloudC2, cloud2*0.65*hFade);
+    sky = mix(sky, cloudC1, cloud1*0.78*hFade);
+
+    /* subtle stars at zenith */
+    float starNoise = h21(uv*vec2(800.0, 800.0)+0.5);
+    float star = step(0.9975, starNoise) * smoothstep(0.4, 1.0, alt);
+    sky += vec3(1.0,0.95,1.0) * star * 0.9;
+
+    col = sky;
+
+  } else {
+    /* ---- LAND: three hill layers ---- */
+    float x = uv.x * ar;
+
+    /* layer 1 (far): high, pale */
+    float h1 = hY - 0.005 - fbm1(x*1.2 + 2.0) * 0.08;
+    /* layer 2 (mid) */
+    float h2 = hY - 0.06  - fbm1(x*2.1 + 10.0) * 0.12;
+    /* layer 3 (near): low, sharp */
+    float h3 = hY - 0.18  - fbm1(x*3.6 + 30.0) * 0.20;
+
+    vec3 farCol  = vec3(0.28, 0.10, 0.22);
+    vec3 midCol  = vec3(0.16, 0.06, 0.16);
+    vec3 nearCol = vec3(0.06, 0.02, 0.08);
+    vec3 sky0    = skyGradient(0.0);
+
+    vec3 landCol = sky0 * 0.9;   /* default horizon glow */
+    if(uv.y < h1) landCol = farCol;
+    if(uv.y < h2) landCol = midCol;
+    if(uv.y < h3) landCol = nearCol;
+
+    /* atmospheric haze at far mountains */
+    float haze = smoothstep(h1-0.04, h1, uv.y);
+    landCol = mix(landCol, sky0, haze*0.35);
+
+    col = landCol;
+  }
+
+  /* post */
+  float vig = smoothstep(1.25, 0.35, length(uv-vec2(0.5, 0.55)));
+  col *= mix(0.78, 1.0, vig);
+
+  float grain = (h21(gl_FragCoord.xy + uTime*31.0) - 0.5) * 0.04;
+  col += grain;
+  col = pow(col, vec3(0.92));
+
+  gl_FragColor = vec4(col, 1.0);
+}`;
+
+function sh(t,s){ const o=gl.createShader(t); gl.shaderSource(o,s); gl.compileShader(o);
+  if(!gl.getShaderParameter(o,gl.COMPILE_STATUS)){ console.error(gl.getShaderInfoLog(o)); throw 0;} return o;}
+const prog=gl.createProgram();
+gl.attachShader(prog, sh(gl.VERTEX_SHADER, VS));
+gl.attachShader(prog, sh(gl.FRAGMENT_SHADER, FS));
+gl.linkProgram(prog);
+if(!gl.getProgramParameter(prog,gl.LINK_STATUS)){ console.error(gl.getProgramInfoLog(prog)); throw 0; }
+gl.useProgram(prog);
+
+const buf=gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER,buf);
+gl.bufferData(gl.ARRAY_BUFFER,new Float32Array([-1,-1,1,-1,-1,1,1,1]),gl.STATIC_DRAW);
+const aPos=gl.getAttribLocation(prog,'aPos');
+gl.enableVertexAttribArray(aPos); gl.vertexAttribPointer(aPos,2,gl.FLOAT,false,0,0);
+
+const uRes=gl.getUniformLocation(prog,'uRes');
+const uTime=gl.getUniformLocation(prog,'uTime');
+
+const dpr=Math.min(window.devicePixelRatio||1,2);
+function resize(){
+  const w=Math.round(window.innerWidth*dpr), h=Math.round(window.innerHeight*dpr);
+  canvas.width=w; canvas.height=h;
+  canvas.style.width=window.innerWidth+'px'; canvas.style.height=window.innerHeight+'px';
+  gl.viewport(0,0,w,h); gl.uniform2f(uRes,w,h);
+}
+window.addEventListener('resize',resize); resize();
+
+const t0=performance.now();
+function frame(){
+  const t=(performance.now()-t0)/1000;
+  gl.uniform1f(uTime, t);
+  gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+  requestAnimationFrame(frame);
+}
+frame();
+</script>
+</body>
+</html>

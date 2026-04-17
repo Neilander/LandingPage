@@ -1,0 +1,236 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>frontend effects lab · 15 · metaball flow</title>
+<!--
+  参考: jamie-wong.com/2016/07/06/metaballs-and-webgl/ (fragment-based SDF metaball 场),
+        alexcodesart.com/create-animated-metaballs-with-shaders-in-p5-js-... (位置噪声驱动),
+        codepen.io/PavelDoGreat/pen/zdWzEL (流体参考, 仅借鉴色感).
+  技术: vanilla WebGL fullscreen fragment shader (原预案 p5.js 切到 vanilla 以减依赖).
+        JS 每帧用 simplex-like 伪噪声更新 14 个 metaball 位置+半径 → 作为 uniform 数组送入;
+        fragment 累加 r²/(d²+eps) 得势能场, threshold 切形, 内部用势场值做双色调渐变,
+        边缘 smoothstep 做 cyan 霓虹边, 鼠标追加一个大球, 加一层 fbm 背景呼吸.
+  观感: 深黑宇宙底, 一团柔软发光的液体球在中部缓慢分裂重组, cyan 边缘 + violet→magenta 内核;
+        鼠标过去,一个大球追随, 像搅动一碗熔岩. 录屏极佳.
+-->
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<style>
+:root{--bg-0:#040208;--fg-0:#f5f3ff;--fg-muted:#a1a1aa;--cyan:#22d3ee;--magenta:#ec4899;--violet:#a855f7}
+@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300..700&family=JetBrains+Mono:wght@400;600&display=swap');
+*{margin:0;padding:0;box-sizing:border-box}
+html,body{width:100%;height:100%;overflow:hidden;background:var(--bg-0);color:var(--fg-0);font-family:'Space Grotesk',system-ui,sans-serif;cursor:none}
+canvas#gl{position:fixed;inset:0;width:100%;height:100%;display:block}
+.ui{position:fixed;inset:0;pointer-events:none;display:flex;flex-direction:column;justify-content:space-between;padding:32px 40px;z-index:5;mix-blend-mode:screen}
+.row{display:flex;justify-content:space-between;align-items:flex-end;gap:24px;font-family:'JetBrains Mono',monospace;font-size:12px;letter-spacing:0.08em;text-transform:uppercase;color:var(--fg-0);opacity:0.78}
+.title{font-size:11px;letter-spacing:0.22em}
+.caption{
+  position:fixed;top:50%;right:40px;transform:translateY(-50%);
+  display:flex;flex-direction:column;align-items:flex-end;gap:6px;z-index:4;
+  color:var(--fg-0);font-family:'JetBrains Mono',monospace;
+  font-size:12px;letter-spacing:0.22em;text-transform:uppercase;opacity:0.78;
+  mix-blend-mode:screen;text-align:right;
+}
+.caption b{display:block;font-weight:600;font-size:36px;letter-spacing:0;color:#f5f3ff;text-transform:none;font-family:'Space Grotesk',sans-serif;font-style:italic;line-height:1.02;margin-top:2px}
+.caption span{color:var(--fg-muted);letter-spacing:0.18em}
+.cursor{position:fixed;top:0;left:0;width:36px;height:36px;border-radius:50%;border:1.2px solid #f5f3ff;pointer-events:none;z-index:10;transform:translate(-50%,-50%);mix-blend-mode:screen}
+</style>
+</head>
+<body>
+<canvas id="gl"></canvas>
+<div class="caption">
+  <span>no. 15</span>
+  <b>soft machine,<br>slow boil.</b>
+  <span>14 potentials · 1 cursor</span>
+</div>
+<div class="ui">
+  <div class="row">
+    <div class="title">frontend effects lab · 2026</div>
+    <div class="title">[ 05 / 10 ]</div>
+  </div>
+  <div class="row">
+    <div class="title">metaball sdf · r²/(d²+ε) field sum · threshold 1.0</div>
+    <div class="title">v0.1 · 17 Apr 2026</div>
+  </div>
+</div>
+<div class="cursor"></div>
+
+<script>
+const canvas=document.getElementById('gl');
+const gl=canvas.getContext('webgl',{antialias:true, premultipliedAlpha:false});
+if(!gl){ document.body.innerHTML='<p style="padding:40px;font-family:monospace">WebGL not available.</p>'; throw 0; }
+
+const N = 14;
+
+const VS = `attribute vec2 aPos; void main(){ gl_Position=vec4(aPos,0.,1.); }`;
+const FS = `
+precision highp float;
+uniform vec2  uRes;
+uniform float uTime;
+uniform vec3  uBalls[${N}]; /* x, y (aspect-norm), radius */
+uniform vec3  uMouseBall;   /* x, y, radius */
+
+float h21(vec2 p){ p=fract(p*vec2(123.34,456.21)); p+=dot(p,p+45.32); return fract(p.x*p.y); }
+float n2(vec2 p){
+  vec2 i=floor(p), f=fract(p);
+  float a=h21(i), b=h21(i+vec2(1,0)), c=h21(i+vec2(0,1)), d=h21(i+vec2(1,1));
+  vec2 u=f*f*(3.-2.*f);
+  return mix(a,b,u.x)+(c-a)*u.y*(1.-u.x)+(d-b)*u.x*u.y;
+}
+float fbm(vec2 p){
+  float v=0., a=0.5;
+  mat2 R=mat2(0.8,-0.6,0.6,0.8);
+  for(int i=0;i<5;i++){ v+=a*n2(p); p=R*p*2.; a*=0.5; }
+  return v;
+}
+
+float field(vec2 p){
+  float f = 0.0;
+  for(int i=0;i<${N};i++){
+    vec2 d = p - uBalls[i].xy;
+    float r = uBalls[i].z;
+    f += r*r / (dot(d,d) + 0.0008);
+  }
+  vec2 dm = p - uMouseBall.xy;
+  f += uMouseBall.z*uMouseBall.z / (dot(dm,dm) + 0.0008);
+  return f;
+}
+
+void main(){
+  vec2 uv = gl_FragCoord.xy / uRes.xy;
+  float ar = uRes.x / uRes.y;
+  vec2 p = vec2((uv.x-0.5)*ar, uv.y-0.5);
+
+  float f = field(p);
+  /* threshold 1.0 is surface */
+  float inside = smoothstep(0.85, 1.12, f);
+  float rim    = smoothstep(1.04, 1.00, f) - smoothstep(1.00, 0.94, f);
+  rim = max(rim, 0.0);
+
+  /* inside color: violet→magenta by field intensity (peaks become white hot) */
+  float peak = smoothstep(1.2, 2.6, f);
+  vec3 violet  = vec3(0.66, 0.33, 0.97);
+  vec3 magenta = vec3(0.92, 0.28, 0.60);
+  vec3 cyan    = vec3(0.133, 0.827, 0.933);
+  vec3 whiteHot= vec3(1.0, 0.92, 1.0);
+  vec3 inner = mix(violet, magenta, smoothstep(0.9, 1.4, f));
+  inner = mix(inner, whiteHot, peak*0.9);
+
+  /* rim glow: cyan electric */
+  vec3 rimCol = cyan * 2.0;
+
+  /* exterior halo around balls (for glow aura) */
+  float halo = smoothstep(0.25, 0.95, f) * (1.0 - inside);
+
+  /* background: deep violet-black with slow fbm breath */
+  float bgN = fbm(p*1.3 + uTime*0.05);
+  vec3 bg = mix(vec3(0.008,0.003,0.02), vec3(0.04,0.01,0.08), smoothstep(0.3,0.9,bgN));
+
+  vec3 col = bg;
+  col += halo * 0.55 * mix(violet, cyan, 0.3);
+  col = mix(col, inner, inside);
+  col += rim * rimCol * 1.4;
+
+  /* vignette */
+  float vig = smoothstep(1.25, 0.25, length(uv-0.5));
+  col *= mix(0.55, 1.0, vig);
+
+  /* grain + filmic */
+  float grain = (h21(gl_FragCoord.xy + uTime*53.0) - 0.5) * 0.035;
+  col += grain;
+  col = pow(col, vec3(0.93));
+  gl_FragColor = vec4(col, 1.0);
+}`;
+
+function sh(t,s){ const o=gl.createShader(t); gl.shaderSource(o,s); gl.compileShader(o);
+  if(!gl.getShaderParameter(o,gl.COMPILE_STATUS)){ console.error(gl.getShaderInfoLog(o)); throw 0;} return o;}
+const prog=gl.createProgram();
+gl.attachShader(prog, sh(gl.VERTEX_SHADER, VS));
+gl.attachShader(prog, sh(gl.FRAGMENT_SHADER, FS));
+gl.linkProgram(prog);
+if(!gl.getProgramParameter(prog,gl.LINK_STATUS)){ console.error(gl.getProgramInfoLog(prog)); throw 0; }
+gl.useProgram(prog);
+
+const buf=gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER,buf);
+gl.bufferData(gl.ARRAY_BUFFER,new Float32Array([-1,-1,1,-1,-1,1,1,1]),gl.STATIC_DRAW);
+const aPos=gl.getAttribLocation(prog,'aPos');
+gl.enableVertexAttribArray(aPos); gl.vertexAttribPointer(aPos,2,gl.FLOAT,false,0,0);
+
+const uRes=gl.getUniformLocation(prog,'uRes');
+const uTime=gl.getUniformLocation(prog,'uTime');
+const uBalls=gl.getUniformLocation(prog,'uBalls');
+const uMouseBall=gl.getUniformLocation(prog,'uMouseBall');
+
+const dpr=Math.min(window.devicePixelRatio||1,2);
+function resize(){
+  const w=Math.round(window.innerWidth*dpr), h=Math.round(window.innerHeight*dpr);
+  canvas.width=w; canvas.height=h;
+  canvas.style.width=window.innerWidth+'px'; canvas.style.height=window.innerHeight+'px';
+  gl.viewport(0,0,w,h); gl.uniform2f(uRes,w,h);
+}
+window.addEventListener('resize',resize); resize();
+
+/* balls: each has orbit params */
+const balls = [];
+for(let i=0;i<N;i++){
+  balls.push({
+    ox: (Math.random()-0.5)*0.5,
+    oy: (Math.random()-0.5)*0.4,
+    rx: 0.25 + Math.random()*0.45,
+    ry: 0.18 + Math.random()*0.30,
+    freqX: 0.12 + Math.random()*0.28,
+    freqY: 0.10 + Math.random()*0.26,
+    phase: Math.random()*Math.PI*2,
+    r: 0.09 + Math.random()*0.12,
+    rPulseAmp: 0.02 + Math.random()*0.03,
+    rPulseFreq: 0.3 + Math.random()*0.5,
+  });
+}
+const ballArr = new Float32Array(N*3);
+
+const mouse = {x:0, y:0, tx:0, ty:0, active:false};
+window.addEventListener('pointermove', e => {
+  const ar = window.innerWidth/window.innerHeight;
+  mouse.tx = ((e.clientX/window.innerWidth) - 0.5) * ar;
+  mouse.ty = (1 - e.clientY/window.innerHeight) - 0.5;
+  mouse.active = true;
+});
+window.addEventListener('pointerleave', ()=>{ mouse.active = false; });
+
+/* cursor dom follower */
+const cursorEl = document.querySelector('.cursor');
+let cx=0,cy=0,ctx=0,cty=0;
+window.addEventListener('pointermove', e => { ctx=e.clientX; cty=e.clientY; });
+
+const t0=performance.now();
+function frame(){
+  const t=(performance.now()-t0)/1000;
+
+  for(let i=0;i<N;i++){
+    const b = balls[i];
+    const x = b.ox + Math.cos(t*b.freqX + b.phase) * b.rx + Math.sin(t*b.freqX*0.6 + b.phase*1.7) * 0.08;
+    const y = b.oy + Math.sin(t*b.freqY + b.phase) * b.ry + Math.cos(t*b.freqY*0.7 + b.phase*1.3) * 0.06;
+    const r = b.r + Math.sin(t*b.rPulseFreq + b.phase)*b.rPulseAmp;
+    ballArr[i*3]   = x;
+    ballArr[i*3+1] = y;
+    ballArr[i*3+2] = r;
+  }
+  gl.uniform3fv(uBalls, ballArr);
+
+  mouse.x += (mouse.tx - mouse.x)*0.12;
+  mouse.y += (mouse.ty - mouse.y)*0.12;
+  const mr = mouse.active ? 0.16 : 0.0;
+  gl.uniform3f(uMouseBall, mouse.x, mouse.y, mr);
+
+  gl.uniform1f(uTime, t);
+  gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+
+  cx += (ctx-cx)*0.20; cy += (cty-cy)*0.20;
+  cursorEl.style.transform = `translate(${cx-18}px,${cy-18}px)`;
+
+  requestAnimationFrame(frame);
+}
+frame();
+</script>
+</body>
+</html>

@@ -1,0 +1,368 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>frontend effects lab · gallery</title>
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<style>
+:root{
+  --paper:#efe7d6; --paper-2:#e3d8c1; --cream:#f6eddb;
+  --ink:#1b1815; --ink-dim:#6e6657;
+  --brick:#c64a2a; --moss:#384a33; --brass:#b99754; --violet:#5a2a6e;
+  --webgl:#5a2a6e; --editorial:#384a33;
+}
+@import url('https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght,SOFT,WONK@0,9..144,300..900,0..100,0..1;1,9..144,300..900,0..100,0..1&family=Inter:wght@300..800&family=JetBrains+Mono:wght@400;600&display=swap');
+*{margin:0;padding:0;box-sizing:border-box}
+html,body{min-height:100%;background:var(--paper);color:var(--ink);font-family:'Inter',system-ui,sans-serif}
+
+/* grain */
+.grain{position:fixed;inset:0;pointer-events:none;z-index:70;
+  background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='220' height='220'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 0.55 0'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>");
+  background-size:220px 220px;opacity:0.22;mix-blend-mode:multiply}
+
+/* header */
+header{
+  display:grid;grid-template-columns:1fr auto 1fr;align-items:end;gap:24px;
+  padding:44px clamp(32px,4vw,72px) 28px;border-bottom:1px solid rgba(27,24,21,0.15);
+}
+header .l{display:flex;flex-direction:column;gap:4px}
+header .l b{font-family:'Fraunces',serif;font-style:italic;font-weight:500;font-variation-settings:"opsz" 14,"WONK" 1;font-size:16px}
+header .l span{font-family:'JetBrains Mono',monospace;font-size:11px;letter-spacing:0.26em;text-transform:uppercase;color:var(--ink-dim)}
+header h1{
+  font-family:'Fraunces',serif;font-weight:900;
+  font-variation-settings:"opsz" 144,"SOFT" 30,"WONK" 1;
+  font-size:clamp(44px, 7vw, 104px);line-height:0.86;letter-spacing:-0.035em;text-align:center;
+}
+header h1 em{font-style:italic;color:var(--brick);font-variation-settings:"opsz" 144,"SOFT" 80,"WONK" 1}
+header .r{text-align:right;display:flex;flex-direction:column;gap:4px;font-family:'JetBrains Mono',monospace;font-size:11px;letter-spacing:0.26em;text-transform:uppercase;color:var(--ink-dim)}
+header .r b{font-family:'Fraunces',serif;font-style:italic;font-weight:500;font-variation-settings:"opsz" 18,"WONK" 1;font-size:18px;color:var(--ink);letter-spacing:0}
+
+/* sub */
+.sub{padding:28px clamp(32px,4vw,72px);display:flex;justify-content:space-between;align-items:flex-end;gap:24px;border-bottom:1px solid rgba(27,24,21,0.12)}
+.sub p{max-width:580px;font-family:'Fraunces',serif;font-style:italic;font-variation-settings:"opsz" 20,"WONK" 1;font-size:19px;line-height:1.4;color:var(--ink);opacity:0.9}
+.sub .legend{display:flex;gap:10px}
+.sub .legend span{font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:0.28em;text-transform:uppercase;padding:6px 12px;border-radius:999px;border:1px solid var(--ink);color:var(--ink)}
+.sub .legend .wg{background:var(--webgl);color:var(--cream);border-color:var(--webgl)}
+.sub .legend .ed{background:var(--editorial);color:var(--cream);border-color:var(--editorial)}
+
+/* grid */
+.grid{
+  display:grid;
+  grid-template-columns:repeat(auto-fill, minmax(320px, 1fr));
+  gap:clamp(18px,2vw,32px);
+  padding:32px clamp(32px,4vw,72px) 80px;
+}
+.card{
+  position:relative;background:var(--cream);border-radius:16px;overflow:hidden;
+  display:flex;flex-direction:column;
+  box-shadow:0 1px 2px rgba(27,24,21,0.06),0 18px 40px -20px rgba(27,24,21,0.15);
+  transition: transform 0.4s cubic-bezier(0.2,0.7,0.2,1), box-shadow 0.4s;
+  cursor:pointer;
+}
+.card:hover{transform:translateY(-4px);box-shadow:0 4px 8px rgba(27,24,21,0.08),0 30px 60px -20px rgba(27,24,21,0.22)}
+
+/* hero band per card — signature color */
+.card .band{
+  position:relative;aspect-ratio: 16/9;overflow:hidden;
+  display:flex;align-items:flex-end;justify-content:space-between;padding:18px;
+}
+.card .band .num{
+  font-family:'Fraunces',serif;font-weight:900;font-style:normal;
+  font-variation-settings:"opsz" 144,"SOFT" 30,"WONK" 1;
+  font-size:clamp(60px,6.8vw,96px);line-height:0.82;letter-spacing:-0.03em;
+  color:var(--cream);mix-blend-mode:screen;
+}
+.card .band .line-tag{
+  font-family:'JetBrains Mono',monospace;font-size:9px;letter-spacing:0.28em;text-transform:uppercase;
+  padding:5px 10px;border-radius:999px;background:rgba(255,255,255,0.9);color:var(--ink);
+}
+.card .band svg.bg{position:absolute;inset:0;width:100%;height:100%}
+
+.card .body{padding:20px 22px 22px;display:flex;flex-direction:column;gap:10px}
+.card .body h3{
+  font-family:'Fraunces',serif;font-weight:700;
+  font-variation-settings:"opsz" 48,"WONK" 1;
+  font-size:26px;line-height:1.02;letter-spacing:-0.015em;color:var(--ink);
+}
+.card .body h3 em{font-style:italic;color:var(--brick);font-variation-settings:"opsz" 48,"SOFT" 80,"WONK" 1}
+.card .body .desc{font-size:13px;line-height:1.55;color:var(--ink-dim)}
+.card .body .tech{font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:0.18em;text-transform:uppercase;color:var(--ink-dim);margin-top:2px}
+
+.card .refs{padding:0 22px 18px;display:flex;flex-direction:column;gap:6px}
+.card .refs .rlabel{font-family:'JetBrains Mono',monospace;font-size:9px;letter-spacing:0.26em;text-transform:uppercase;color:var(--ink-dim);margin-bottom:4px}
+.card .refs a{
+  font-family:'Inter',sans-serif;font-size:12px;color:var(--ink);text-decoration:none;
+  padding:4px 0;display:flex;align-items:center;gap:8px;line-height:1.4;
+  border-top:1px dashed rgba(27,24,21,0.2);
+}
+.card .refs a:first-of-type{border-top:none}
+.card .refs a:hover{color:var(--brick)}
+.card .refs a::before{content:"↗";color:var(--ink-dim);font-family:'JetBrains Mono',monospace;font-size:11px;flex-shrink:0}
+
+.card .actions{display:flex;gap:8px;padding:0 22px 22px}
+.card .actions button,.card .actions a.newtab{
+  flex:1;padding:12px;border-radius:10px;border:1px solid var(--ink);
+  font-family:'JetBrains Mono',monospace;font-size:11px;letter-spacing:0.24em;text-transform:uppercase;
+  background:var(--ink);color:var(--cream);cursor:pointer;
+  transition:background 0.25s,color 0.25s,transform 0.15s;
+  text-align:center;text-decoration:none;display:flex;align-items:center;justify-content:center;gap:6px;
+}
+.card .actions a.newtab{background:transparent;color:var(--ink);flex:0 0 auto;padding:12px 14px}
+.card .actions button:hover{background:var(--brick);border-color:var(--brick)}
+.card .actions a.newtab:hover{background:var(--ink);color:var(--cream)}
+
+/* viewer overlay */
+.viewer{
+  position:fixed;inset:0;z-index:200;background:rgba(10,7,5,0.92);
+  backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);
+  display:flex;flex-direction:column;padding:clamp(16px,2vw,32px);gap:14px;
+  opacity:0;pointer-events:none;transition:opacity 0.35s ease;
+}
+.viewer.on{opacity:1;pointer-events:auto}
+.viewer .bar{
+  display:flex;justify-content:space-between;align-items:center;gap:16px;
+  color:var(--cream);font-family:'JetBrains Mono',monospace;font-size:11px;letter-spacing:0.22em;text-transform:uppercase;
+  padding:0 6px;
+}
+.viewer .bar .title{display:flex;align-items:baseline;gap:14px}
+.viewer .bar .title b{font-family:'Fraunces',serif;font-style:italic;font-weight:500;font-size:20px;letter-spacing:0;font-variation-settings:"opsz" 20,"WONK" 1;color:var(--cream);text-transform:none}
+.viewer .bar .right{display:flex;gap:10px;align-items:center}
+.viewer .bar .right a,.viewer .bar .right button{
+  padding:9px 14px;border-radius:999px;border:1px solid rgba(246,237,219,0.35);
+  color:var(--cream);background:transparent;font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:0.26em;text-transform:uppercase;
+  text-decoration:none;cursor:pointer;transition:background 0.2s,color 0.2s,border-color 0.2s
+}
+.viewer .bar .right a:hover{background:var(--cream);color:var(--ink);border-color:var(--cream)}
+.viewer .bar .right button:hover{background:var(--brick);border-color:var(--brick)}
+
+.viewer .stage{flex:1;background:#000;border-radius:14px;overflow:hidden;position:relative;box-shadow:0 30px 120px rgba(0,0,0,0.6)}
+.viewer .stage iframe{width:100%;height:100%;border:0;display:block}
+.viewer .stage .empty{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:rgba(246,237,219,0.5);font-family:'JetBrains Mono',monospace;font-size:11px;letter-spacing:0.24em;text-transform:uppercase}
+
+/* footer */
+footer{padding:22px clamp(32px,4vw,72px);border-top:1px solid rgba(27,24,21,0.15);display:flex;justify-content:space-between;align-items:center;font-family:'JetBrains Mono',monospace;font-size:11px;letter-spacing:0.24em;text-transform:uppercase;color:var(--ink-dim)}
+footer b{font-family:'Fraunces',serif;font-style:italic;color:var(--ink);letter-spacing:0;font-variation-settings:"opsz" 16,"WONK" 1}
+
+/* card band styles (one per demo) */
+.b11{background:#050308}
+.b12{background:#07050f}
+.b13{background:#05020c}
+.b14{background:#06030a}
+.b15{background:#040208}
+.b16{background:linear-gradient(180deg,#21124a 0%,#6e3050 50%,#e28060 100%)}
+.b17{background:#efe7d6}
+.b17 .num{color:var(--brick);mix-blend-mode:normal}
+.b18{background:linear-gradient(90deg,#efe7d6 0%,#384a33 33%,#c64a2a 66%,#0f0d0a 100%)}
+.b19{background:#17140f}
+.b20{background:linear-gradient(135deg,#384a33 0%,#c64a2a 100%)}
+</style>
+</head>
+<body>
+<div class="grain"></div>
+
+<header>
+  <div class="l">
+    <b>frontend effects lab</b>
+    <span>issue 01 · gallery · spring 2026</span>
+  </div>
+  <h1>nine <em>good</em> pages.</h1>
+  <div class="r">
+    <span>vol. i · apr 2026</span>
+    <b>N°&nbsp;001</b>
+    <span>one runs at a time</span>
+  </div>
+</header>
+
+<section class="sub">
+  <p>A single-iframe viewer — each demo loads only when you open its card, and unloads the moment you close. Click any number to start the engine.</p>
+  <div class="legend">
+    <span class="wg">webgl · 6</span>
+    <span class="ed">editorial · 3</span>
+    <a class="ed" href="show.html" style="text-decoration:none">immersive →</a>
+  </div>
+</section>
+
+<section class="grid" id="grid"></section>
+
+<footer>
+  <div>frontend effects lab · 2026</div>
+  <div><b>— gallery —</b></div>
+  <div>v0.1 · 17 apr 2026</div>
+</footer>
+
+<!-- viewer -->
+<div class="viewer" id="viewer" aria-hidden="true">
+  <div class="bar">
+    <div class="title">
+      <span id="vNum">N° —</span>
+      <b id="vTitle">—</b>
+    </div>
+    <div class="right">
+      <a id="vOpen" href="#" target="_blank" rel="noopener">open raw ↗</a>
+      <button id="vClose">close ✕</button>
+    </div>
+  </div>
+  <div class="stage" id="vStage">
+    <div class="empty">loading…</div>
+  </div>
+</div>
+
+<script>
+const DEMOS = [
+  {
+    n:11, slug:'11_liquid-metal-text', title:'Liquid Forge', line:'webgl', bclass:'b11',
+    desc:'A glyph of molten chrome rendered in one fragment shader. Mouse heat amplifies the fbm displacement; color cycles cyan → magenta → violet.',
+    tech:'vanilla webgl · fbm warp · text→texture',
+    refs:[
+      { label:'Fluid Metal WebGL Shader', url:'https://codepen.io/darika-dev/pen/rNvWGxZ' },
+      { label:'Animating Letters with Shaders · Codrops', url:'https://tympanus.net/codrops/2025/03/24/animating-letters-with-shaders-interactive-text-effect-with-three-js-glsl/' },
+    ]
+  },
+  {
+    n:12, slug:'12_particle-nebula', title:'Particle Nebula', line:'webgl', bclass:'b12',
+    desc:'30,000 points on a soft disk, pushed aside by the cursor ray, glazed with UnrealBloom. Slow camera drift keeps it alive.',
+    tech:'three.js · buffergeometry · bloom pass',
+    refs:[
+      { label:'Interactive Particle Nebula · CodePen', url:'https://codepen.io/kasunshana/pen/zxvWEWG' },
+      { label:'Interactive Particle Sphere · VoXelo', url:'https://codepen.io/VoXelo/pen/PwYJdVG' },
+    ]
+  },
+  {
+    n:13, slug:'13_neon-ripple', title:'Neon Ripple', line:'webgl', bclass:'b13',
+    desc:'Eight click-sources expand into concentric neon rings. Idle for two seconds and the void fires its own. Swirl UV near the cursor.',
+    tech:'fragment shader · swirl · ring() stack',
+    refs:[
+      { label:'Interactive WebGL Neon Ripple · VoXelo', url:'https://codepen.io/VoXelo/pen/MYWLBRm' },
+      { label:'WebGL Neon Wave · phillip-gimmi', url:'https://codepen.io/phillip-gimmi/pen/raNRYpM' },
+    ]
+  },
+  {
+    n:14, slug:'14_crt-glitch', title:'Signal Lost', line:'webgl', bclass:'b14',
+    desc:'A 1987 tape deck on a bad day. SVG barrel warp, RGB split, scanlines, rolling binary, vertical roll and random color bars.',
+    tech:'dom · svg displacement · canvas noise',
+    refs:[
+      { label:'CRT TV Effect · CodePen', url:'https://codepen.io/GLITCHXploitR/pen/OxGKrq' },
+      { label:'CSS Text Glitch Effects · freefrontend', url:'https://freefrontend.com/css-text-glitch-effects/' },
+    ]
+  },
+  {
+    n:15, slug:'15_metaball-flow', title:'Soft Machine', line:'webgl', bclass:'b15',
+    desc:'Fourteen potential fields summed per pixel, thresholded at one. The cursor adds a fifteenth. Cyan rim, violet → magenta interior.',
+    tech:'fragment sdf · noise-driven orbits',
+    refs:[
+      { label:'Metaballs and WebGL · Jamie Wong', url:'https://jamie-wong.com/2016/07/06/metaballs-and-webgl/' },
+      { label:'Animated Metaballs in p5.js · alexcodesart', url:'https://alexcodesart.com/create-animated-metaballs-with-shaders-in-p5-js-a-creative-coding-tutorial/' },
+    ]
+  },
+  {
+    n:16, slug:'16_procedural-sky', title:'Slow Skies', line:'webgl', bclass:'b16',
+    desc:'A fragment-only sunset: drifting fbm clouds, sun disk with halo, three layers of hill silhouette, atmospheric haze.',
+    tech:'fragment shader · fbm · no textures',
+    refs:[
+      { label:'Procedural Noise Terrain · Shadertoy', url:'https://www.shadertoy.com/view/Ws3XRs' },
+      { label:'Clouds · iq · Shadertoy', url:'https://www.shadertoy.com/view/XslGRr' },
+      { label:'Dissecting Tiny Clouds · demofox', url:'https://blog.demofox.org/2017/11/26/dissecting-tiny-clouds/' },
+    ]
+  },
+  {
+    n:17, slug:'17_editorial-hero', title:'Play It Slow', line:'editorial', bclass:'b17',
+    desc:'A cover in Fraunces 900. Grain via SVG feTurbulence, characters stagger in on load, the headline quietly breathes on the WONK axis.',
+    tech:'fraunces · feturbulence · gsap',
+    refs:[
+      { label:'Grainy Gradients · CSS-Tricks', url:'https://css-tricks.com/grainy-gradients/' },
+      { label:'SVG Filter Effects · Sara Soueidan · Codrops', url:'https://tympanus.net/codrops/2019/02/19/svg-filter-effects-creating-texture-with-feturbulence/' },
+      { label:'SplitType + GSAP · designcourse', url:'https://codepen.io/designcourse/pen/RwyMePX' },
+    ]
+  },
+  {
+    n:19, slug:'19_organic-blob-hero', title:'Make Slowly', line:'editorial', bclass:'b19',
+    desc:'Eighteen points on a circle, each nudged by two sine waves. Catmull-Rom through them every frame; the cursor pushes outward like pressing jelly.',
+    tech:'svg · catmull-rom · per-point noise',
+    refs:[
+      { label:'Smooth Animated Blob · dev.to', url:'https://dev.to/georgedoescode/tutorial-build-a-smooth-animated-blob-using-svg-js-3pne' },
+      { label:'anime.js Blob Morph · CodePen', url:'https://codepen.io/wiseoldman/pen/wRmveE' },
+      { label:'Organic Shape + clipPath · Codrops', url:'https://tympanus.net/codrops/2017/06/28/organic-shape-animations-with-svg-clippath/' },
+    ]
+  },
+  {
+    n:20, slug:'20_product-cards', title:'Slow Goods', line:'editorial', bclass:'b20',
+    desc:'Six objects for a patient desk. GSAP quickTo tracks the cursor for per-card 3D tilt, CSS variables swap the duotone on hover, a radial highlight follows your pointer.',
+    tech:'gsap quickto · css vars · duotone',
+    refs:[
+      { label:'GSAP 3D Card Hover · Devotee007', url:'https://codepen.io/Devotee007/pen/pomOEVa' },
+      { label:'Mystery Card + noise · filipz', url:'https://codepen.io/filipz/pen/QwwOEQZ' },
+      { label:'Spotify Duotone Blend · jmperez', url:'https://codepen.io/jmperez/pen/wrVxga' },
+    ]
+  },
+];
+
+const grid = document.getElementById('grid');
+
+DEMOS.forEach(d => {
+  const card = document.createElement('article');
+  card.className = 'card';
+  const lineLabel = d.line === 'webgl' ? 'WEBGL' : 'EDITORIAL';
+
+  card.innerHTML = `
+    <div class="band ${d.bclass}">
+      <div class="num">${String(d.n).padStart(2,'0')}</div>
+      <div class="line-tag">${lineLabel}</div>
+    </div>
+    <div class="body">
+      <h3>${d.title.replace(/\b(\w+)$/, '<em>$1</em>')}</h3>
+      <div class="desc">${d.desc}</div>
+      <div class="tech">${d.tech}</div>
+    </div>
+    <div class="refs">
+      <div class="rlabel">references · ${d.refs.length}</div>
+      ${d.refs.map(r => `<a href="${r.url}" target="_blank" rel="noopener">${r.label}</a>`).join('')}
+    </div>
+    <div class="actions">
+      <button data-slug="${d.slug}" data-n="${d.n}" data-title="${d.title}">preview ▶</button>
+      <a class="newtab" href="implementations/${d.slug}.html" target="_blank" rel="noopener">new tab ↗</a>
+    </div>
+  `;
+  grid.appendChild(card);
+});
+
+/* ---- viewer ---- */
+const viewer  = document.getElementById('viewer');
+const vStage  = document.getElementById('vStage');
+const vTitle  = document.getElementById('vTitle');
+const vNum    = document.getElementById('vNum');
+const vOpen   = document.getElementById('vOpen');
+const vClose  = document.getElementById('vClose');
+
+function openViewer(slug, n, title){
+  vTitle.textContent = title;
+  vNum.textContent = 'N°\u00a0' + String(n).padStart(3,'0');
+  vOpen.href = 'implementations/' + slug + '.html';
+  /* mount iframe fresh */
+  vStage.innerHTML = '';
+  const iframe = document.createElement('iframe');
+  iframe.src = 'implementations/' + slug + '.html';
+  iframe.setAttribute('allow', 'autoplay; pointer-lock');
+  vStage.appendChild(iframe);
+  viewer.classList.add('on');
+  viewer.setAttribute('aria-hidden','false');
+  document.documentElement.style.overflow = 'hidden';
+}
+function closeViewer(){
+  viewer.classList.remove('on');
+  viewer.setAttribute('aria-hidden','true');
+  /* unmount iframe completely to stop all scripts/WebGL contexts */
+  setTimeout(()=>{ vStage.innerHTML = '<div class="empty">loading…</div>'; }, 350);
+  document.documentElement.style.overflow = '';
+}
+
+grid.addEventListener('click', e => {
+  const btn = e.target.closest('button[data-slug]');
+  if(!btn) return;
+  openViewer(btn.dataset.slug, btn.dataset.n, btn.dataset.title);
+});
+vClose.addEventListener('click', closeViewer);
+viewer.addEventListener('click', e => { if(e.target === viewer) closeViewer(); });
+document.addEventListener('keydown', e => { if(e.key === 'Escape' && viewer.classList.contains('on')) closeViewer(); });
+</script>
+</body>
+</html>

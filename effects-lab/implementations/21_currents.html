@@ -1,0 +1,331 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>frontend effects lab · 21 · currents · no reference</title>
+<!--
+  WITHOUT REFERENCE · made from memory only.
+
+  技术概览:
+    - canvas 2D 全屏, dpr 自适应.
+    - 3000 粒子, 每粒带 {x, y, vx, vy, age, life, hue, speed}.
+    - 流场 angle = fbm2d(x*s, y*s, t) * TAU * 2, 其中 fbm 用两层值噪声 (自己写的 hash + 双线性),
+      time 作为第三个输入让流场缓慢漂移.
+    - 两个固定涡旋 (vortex) 给画面定锚: 每粒子对涡旋求切向力 (perpendicular) + 微弱径向吸引, 形成星云状漩涡.
+    - 鼠标按下变第三个涡旋 (切向强度为正 = 逆时针).
+    - 渲染: 每帧先用极低 alpha 的底色 fillRect 做全局淡出 → 粒子画线段 (prev→now) 形成拖尾;
+      ctx.globalCompositeOperation = 'lighter' 让多条轨迹叠加时发光.
+    - 颜色: 6 色 hue 池子, 每粒子初始挑一个, 随年龄微漂.
+-->
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<style>
+:root{
+  --bg:#04040a; --fg:#f5f3ff; --fg-dim:#a1a1aa;
+  --cyan:#22d3ee; --magenta:#ec4899; --violet:#a855f7; --gold:#fbbf24;
+}
+@import url('https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght,WONK@0,9..144,300..900,0..1;1,9..144,300..900,0..1&family=JetBrains+Mono:wght@400;600&display=swap');
+*{margin:0;padding:0;box-sizing:border-box}
+html,body{width:100%;height:100%;overflow:hidden;background:var(--bg);color:var(--fg);font-family:'JetBrains Mono',monospace}
+body{cursor:none}
+
+canvas{position:fixed;inset:0;width:100%;height:100%;display:block;z-index:1}
+
+.vignette{position:fixed;inset:0;pointer-events:none;z-index:2;
+  background:radial-gradient(ellipse at 50% 55%, transparent 45%, rgba(4,4,10,0.85) 100%)}
+
+.ui{position:fixed;inset:0;pointer-events:none;display:flex;flex-direction:column;justify-content:space-between;padding:32px 44px;z-index:5;mix-blend-mode:difference}
+.row{display:flex;justify-content:space-between;align-items:flex-start;gap:24px}
+.row.bot{align-items:flex-end}
+
+.brand{font-family:'JetBrains Mono',monospace;font-size:11px;letter-spacing:0.26em;text-transform:uppercase;color:var(--fg);opacity:0.85}
+.brand b{font-family:'Fraunces',serif;font-style:italic;font-weight:500;font-variation-settings:"opsz" 16,"WONK" 1;letter-spacing:0;font-size:16px;margin-right:10px}
+
+.stamp{display:flex;flex-direction:column;align-items:flex-end;gap:4px;font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:0.28em;text-transform:uppercase;color:var(--fg-dim)}
+.stamp b{font-family:'Fraunces',serif;font-style:italic;font-weight:500;font-variation-settings:"opsz" 18,"WONK" 1;letter-spacing:0;font-size:18px;color:var(--fg);text-transform:none}
+
+/* hero text centered — restrained, acting as a print watermark */
+.hero{position:fixed;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;pointer-events:none;z-index:4;text-align:center;mix-blend-mode:screen}
+.hero .kicker{font-family:'JetBrains Mono',monospace;font-size:11px;letter-spacing:0.42em;text-transform:uppercase;color:var(--fg);opacity:0.55;margin-bottom:18px}
+.hero h1{
+  font-family:'Fraunces',serif;font-weight:300;font-style:italic;
+  font-variation-settings:"opsz" 144,"WONK" 1;
+  font-size:clamp(56px, 10vw, 160px);line-height:0.88;letter-spacing:-0.035em;
+  color:var(--fg);
+}
+.hero h1 em{font-style:italic;color:var(--cyan);font-variation-settings:"opsz" 144,"WONK" 1}
+.hero h1 .amp{display:inline-block;padding:0 0.08em;color:var(--magenta);transform:translateY(-0.04em);font-weight:500}
+.hero .tag{margin-top:20px;max-width:540px;font-family:'Fraunces',serif;font-style:italic;font-size:16px;line-height:1.45;color:var(--fg-dim);opacity:0.82;font-variation-settings:"opsz" 16,"WONK" 1}
+
+.stats{position:fixed;bottom:32px;right:44px;font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:0.22em;text-transform:uppercase;color:var(--fg-dim);z-index:6;display:flex;gap:18px;pointer-events:none;mix-blend-mode:difference}
+.stats span b{color:var(--fg);font-weight:600;letter-spacing:0.04em}
+
+.cursor{position:fixed;top:0;left:0;width:32px;height:32px;border-radius:50%;border:1.2px solid var(--fg);pointer-events:none;z-index:10;transform:translate(-50%,-50%);mix-blend-mode:difference;transition:width 0.25s ease,height 0.25s ease,border-color 0.25s ease}
+.cursor.hold{width:58px;height:58px;border-color:var(--cyan)}
+
+.help{position:fixed;left:44px;bottom:32px;font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:0.22em;text-transform:uppercase;color:var(--fg-dim);opacity:0.7;z-index:6;pointer-events:none;mix-blend-mode:difference}
+.help b{color:var(--fg);font-weight:600}
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div class="vignette"></div>
+
+<div class="ui">
+  <div class="row top">
+    <div class="brand"><b>frontend effects lab</b>· without reference · N° 021</div>
+    <div class="stamp">
+      <span>figure one</span>
+      <b>Currents</b>
+      <span>17 · 04 · 2026</span>
+    </div>
+  </div>
+  <div class="row bot">
+    <div></div>
+  </div>
+</div>
+
+<div class="hero">
+  <div class="kicker">no search · no reference · memory only</div>
+  <h1>currents, <em>held</em> <span class="amp">&</span> <em>let go</em>.</h1>
+  <div class="tag">Three thousand particles walking through a noise field. Two vortex anchors spin the composition. Hold the mouse to spawn a third.</div>
+</div>
+
+<div class="help"><b>hold</b> anywhere — add a vortex · <b>space</b> — respawn</div>
+<div class="stats" id="stats"><span>particles · <b id="sP">—</b></span><span>fps · <b id="sFps">—</b></span></div>
+<div class="cursor" id="cursor"></div>
+
+<script>
+/* =====================================================
+   noise (value-noise 2d, with time-as-third-dim trick)
+   ===================================================== */
+function hash2(ix, iy){
+  let n = Math.sin(ix*12.9898 + iy*78.233) * 43758.5453;
+  return n - Math.floor(n);
+}
+function smooth(t){ return t*t*(3 - 2*t); }
+function noise2(x, y){
+  const ix = Math.floor(x), iy = Math.floor(y);
+  const fx = x - ix, fy = y - iy;
+  const a = hash2(ix,     iy);
+  const b = hash2(ix + 1, iy);
+  const c = hash2(ix,     iy + 1);
+  const d = hash2(ix + 1, iy + 1);
+  const u = smooth(fx), v = smooth(fy);
+  return a*(1-u)*(1-v) + b*u*(1-v) + c*(1-u)*v + d*u*v;
+}
+/* 2 octaves is enough for a flow field — more octaves make local chaos that the eye doesn't read */
+function fbm(x, y){
+  return 0.65*noise2(x,      y)
+       + 0.35*noise2(x*2.03, y*2.03);
+}
+
+/* =====================================================
+   particle system
+   ===================================================== */
+const canvas = document.getElementById('c');
+const ctx    = canvas.getContext('2d');
+
+let w, h, dpr;
+function resize(){
+  dpr = Math.min(window.devicePixelRatio || 1, 2);
+  w = window.innerWidth;
+  h = window.innerHeight;
+  canvas.width  = w * dpr;
+  canvas.height = h * dpr;
+  canvas.style.width  = w + 'px';
+  canvas.style.height = h + 'px';
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  /* paint full dark so trails don't start bright */
+  ctx.fillStyle = '#04040a';
+  ctx.fillRect(0, 0, w, h);
+}
+window.addEventListener('resize', resize);
+resize();
+
+const COUNT = 3000;
+const HUES = [188, 205, 285, 315, 335, 45]; /* cyan, blue-cyan, violet, magenta, rose, gold */
+
+class P {
+  constructor(x, y){ this.reset(x, y, true); }
+  reset(x, y, fresh){
+    this.x = x !== undefined ? x : Math.random()*w;
+    this.y = y !== undefined ? y : Math.random()*h;
+    this.vx = 0; this.vy = 0;
+    this.age = fresh ? 0 : Math.random()*60;  /* stagger lifetimes so not all die at once */
+    this.life = 300 + Math.random()*450;
+    this.hue = HUES[(Math.random()*HUES.length) | 0] + (Math.random()-0.5)*8;
+    this.speed = 0.6 + Math.random()*1.6;
+  }
+}
+
+const parts = [];
+for(let i = 0; i < COUNT; i++){
+  parts.push(new P(Math.random()*w, Math.random()*h));
+  parts[i].age = Math.random()*parts[i].life;
+}
+
+/* vortices: 2 fixed anchors placed off-center */
+function vortexPoints(){
+  return [
+    { x: w*0.35, y: h*0.48, strength:  0.9, pull: 0.04 },
+    { x: w*0.68, y: h*0.55, strength: -0.75, pull: 0.03 },
+  ];
+}
+let V = vortexPoints();
+window.addEventListener('resize', () => { V = vortexPoints(); });
+
+/* mouse */
+const mouse = { x: w/2, y: h/2, down: false };
+window.addEventListener('pointermove', e => { mouse.x = e.clientX; mouse.y = e.clientY; });
+window.addEventListener('pointerdown', () => { mouse.down = true; cursorEl.classList.add('hold'); });
+window.addEventListener('pointerup',   () => { mouse.down = false; cursorEl.classList.remove('hold'); });
+
+const cursorEl = document.getElementById('cursor');
+let cx = mouse.x, cy = mouse.y;
+
+/* space: respawn all */
+window.addEventListener('keydown', e => {
+  if(e.key === ' '){
+    e.preventDefault();
+    for(const p of parts) p.reset(undefined, undefined, true);
+    ctx.fillStyle = 'rgba(4, 4, 10, 1)';
+    ctx.fillRect(0, 0, w, h);
+  }
+});
+
+/* =====================================================
+   main loop
+   ===================================================== */
+const sP   = document.getElementById('sP');
+const sFps = document.getElementById('sFps');
+sP.textContent = COUNT.toLocaleString();
+
+let t = 0;
+let lastT = performance.now();
+let fpsSmoothed = 60;
+
+const NOISE_SCALE = 0.0022;  /* lower = longer flow lines */
+const TIME_SPEED  = 0.00016; /* noise drift over time */
+const MAX_SPEED   = 2.4;
+
+function frame(now){
+  const dt = Math.min(48, now - lastT);
+  lastT = now;
+  t += dt * TIME_SPEED;
+  fpsSmoothed += ((1000/Math.max(1,dt)) - fpsSmoothed) * 0.1;
+
+  /* fade canvas (the lower the alpha, the longer the trails) */
+  ctx.fillStyle = 'rgba(4, 4, 10, 0.035)';
+  ctx.fillRect(0, 0, w, h);
+
+  /* trails */
+  ctx.globalCompositeOperation = 'lighter';
+  ctx.lineCap = 'round';
+
+  for(let i = 0; i < parts.length; i++){
+    const p = parts[i];
+    const px = p.x, py = p.y;
+
+    /* flow field angle: fbm(x, y, time) mapped to 0..4π so we sometimes get full loops */
+    const n = fbm(p.x * NOISE_SCALE + t, p.y * NOISE_SCALE - t * 0.7);
+    const ang = n * Math.PI * 4;
+    const ax  = Math.cos(ang);
+    const ay  = Math.sin(ang);
+
+    /* accumulate vortex forces */
+    let fx = ax * 0.12;
+    let fy = ay * 0.12;
+
+    for(let j = 0; j < V.length; j++){
+      const v = V[j];
+      const dx = p.x - v.x, dy = p.y - v.y;
+      const d2 = dx*dx + dy*dy + 400;
+      const d  = Math.sqrt(d2);
+      /* tangential component (perpendicular to radial) */
+      const tx = -dy / d;
+      const ty =  dx / d;
+      const falloff = 24000 / d2; /* stronger near center, dies off ~150px */
+      fx += tx * v.strength * falloff;
+      fy += ty * v.strength * falloff;
+      /* tiny radial pull so particles don't escape */
+      fx += (-dx/d) * v.pull * falloff;
+      fy += (-dy/d) * v.pull * falloff;
+    }
+
+    /* mouse vortex (when held) */
+    if(mouse.down){
+      const dx = p.x - mouse.x, dy = p.y - mouse.y;
+      const d2 = dx*dx + dy*dy + 400;
+      const d  = Math.sqrt(d2);
+      const tx = -dy / d;
+      const ty =  dx / d;
+      const falloff = 38000 / d2;
+      fx += tx * 1.1 * falloff;
+      fy += ty * 1.1 * falloff;
+      fx += (-dx/d) * 0.06 * falloff;
+      fy += (-dy/d) * 0.06 * falloff;
+    }
+
+    /* integrate */
+    p.vx = p.vx * 0.92 + fx * p.speed;
+    p.vy = p.vy * 0.92 + fy * p.speed;
+    const sp = Math.hypot(p.vx, p.vy);
+    if(sp > MAX_SPEED){ p.vx *= MAX_SPEED/sp; p.vy *= MAX_SPEED/sp; }
+    p.x += p.vx;
+    p.y += p.vy;
+
+    /* line stroke: prev → current */
+    const lifeFrac = p.age / p.life;
+    const fade = Math.sin(lifeFrac * Math.PI); /* 0→1→0 across lifetime, so births and deaths are soft */
+    const a  = 0.14 * fade;
+    const lw = 0.7 + fade * 1.1;
+
+    ctx.strokeStyle = `hsla(${p.hue + lifeFrac*20}, 85%, 62%, ${a})`;
+    ctx.lineWidth = lw;
+    ctx.beginPath();
+    ctx.moveTo(px, py);
+    ctx.lineTo(p.x, p.y);
+    ctx.stroke();
+
+    p.age++;
+    /* respawn when aged or out of bounds */
+    if(p.age > p.life || p.x < -30 || p.x > w+30 || p.y < -30 || p.y > h+30){
+      /* bias respawn toward one of the vortices 40% of the time for density */
+      if(Math.random() < 0.4){
+        const v = V[(Math.random()*V.length)|0];
+        const r = 60 + Math.random()*220;
+        const ang2 = Math.random()*Math.PI*2;
+        p.reset(v.x + Math.cos(ang2)*r, v.y + Math.sin(ang2)*r, true);
+      } else {
+        p.reset(undefined, undefined, true);
+      }
+    }
+  }
+
+  ctx.globalCompositeOperation = 'source-over';
+
+  /* draw vortex anchors as very faint cross-hairs (editorial touch) */
+  ctx.strokeStyle = 'rgba(245,243,255,0.08)';
+  ctx.lineWidth = 1;
+  for(const v of V){
+    ctx.beginPath();
+    ctx.moveTo(v.x - 10, v.y); ctx.lineTo(v.x + 10, v.y);
+    ctx.moveTo(v.x, v.y - 10); ctx.lineTo(v.x, v.y + 10);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.arc(v.x, v.y, 3, 0, Math.PI*2);
+    ctx.stroke();
+  }
+
+  /* cursor */
+  cx += (mouse.x - cx) * 0.22;
+  cy += (mouse.y - cy) * 0.22;
+  cursorEl.style.transform = `translate(${cx-16}px,${cy-16}px)`;
+
+  sFps.textContent = fpsSmoothed.toFixed(0);
+  requestAnimationFrame(frame);
+}
+requestAnimationFrame(frame);
+</script>
+</body>
+</html>
