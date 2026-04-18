@@ -1,0 +1,1177 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>Flower Language · 花语</title>
+<!--
+  奶白极简 + 中央粒子云 -> 搜索触发 -> 粒子先散开再聚成花的线条 -> 文字淡入
+  技术: canvas 2D 粒子系统; 每朵花预定义一个 SVG <path>, 用 getPointAtLength 采点作为粒子目标.
+-->
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<style>
+:root{
+  --bg:#fdfbf5;
+  --ink:#1a1a1a;
+  --ink-mid:#5a5245;
+  --ink-dim:#9a9285;
+  --accent:#7a6a4a;
+}
+@import url('https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300..900;1,9..144,300..900&family=Inter:wght@300;400&family=Noto+Sans+SC:wght@300;400&family=JetBrains+Mono:wght@400&display=swap');
+*{margin:0;padding:0;box-sizing:border-box}
+html,body{min-height:100%;background:var(--bg);color:var(--ink);font-family:'Inter','Noto Sans SC',system-ui,sans-serif;overflow-x:hidden}
+
+/* header */
+header{display:flex;justify-content:space-between;align-items:center;padding:24px clamp(28px,4vw,64px);font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:0.24em;text-transform:uppercase;color:var(--ink-dim)}
+header .brand{font-family:'Fraunces',serif;font-style:italic;font-weight:400;font-size:14px;letter-spacing:0;color:var(--ink-mid)}
+header a{color:var(--ink-dim);text-decoration:none;transition:color 0.2s}
+header a:hover{color:var(--ink)}
+
+/* hero */
+.hero{max-width:720px;margin:0 auto;padding:56px clamp(24px,4vw,48px) 0;text-align:center}
+html{scroll-behavior:smooth}
+.hero h1{
+  font-family:'Fraunces',serif;font-style:italic;font-weight:300;
+  font-variation-settings:"opsz" 72;
+  font-size:clamp(40px,6vw,76px);letter-spacing:-0.02em;color:#1a1a1a;
+}
+.hero h1 em{font-family:'Fraunces',serif;font-style:italic;font-weight:500;font-variation-settings:"opsz" 72;color:var(--accent)}
+.hero .tag{margin-top:12px;font-family:'Fraunces',serif;font-style:italic;font-weight:400;font-size:16px;color:#777}
+
+.search{max-width:560px;margin:36px auto 14px;padding:0 12px}
+.search input{
+  width:100%;padding:14px 20px;border:none;border-bottom:1.5px solid #1a1a1a;background:transparent;color:#1a1a1a;
+  font-family:'Fraunces',serif;font-style:italic;font-weight:400;font-size:28px;text-align:center;outline:none;
+}
+.search input::placeholder{color:var(--ink-dim);font-style:italic;opacity:0.55}
+
+.hints{text-align:center;margin-top:14px;font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:0.22em;text-transform:uppercase;color:var(--ink-dim)}
+.hints span.label{margin-right:6px;opacity:0.7}
+.hints button{margin:2px;padding:4px 9px;border:none;background:transparent;color:var(--ink-mid);cursor:pointer;font-family:inherit;font-size:inherit;letter-spacing:inherit;text-decoration:underline;text-decoration-color:transparent;transition:text-decoration-color 0.2s,color 0.2s}
+.hints button:hover{color:var(--ink);text-decoration-color:var(--ink)}
+
+/* 中央粒子舞台 */
+.stage{
+  position:relative;margin:14px auto 0;
+  width:min(440px,76vw);height:min(440px,76vw);
+}
+canvas#fx{position:absolute;inset:0;width:100%;height:100%;display:block}
+
+/* 花的文字信息 (搜到后从舞台下方淡入) */
+.flower-text{
+  max-width:560px;margin:0 auto;padding:4px clamp(24px,4vw,48px) 20px;text-align:center;min-height:112px;
+  opacity:0;transform:translateY(8px);transition:opacity 0.7s ease,transform 0.7s ease;
+}
+.flower-text.on{opacity:1;transform:translateY(0)}
+.flower-text .zh{font-family:'Fraunces',serif;font-style:italic;font-weight:500;font-variation-settings:"opsz" 48;font-size:30px;color:#1a1a1a;letter-spacing:-0.01em;line-height:1.1}
+.flower-text .zh em{color:var(--accent)}
+.flower-text .en{font-family:'JetBrains Mono',monospace;font-size:9px;letter-spacing:0.3em;text-transform:uppercase;color:var(--ink-dim);margin-top:3px}
+.flower-text .meaning{margin-top:8px;font-family:'Fraunces',serif;font-style:italic;font-weight:400;font-size:17px;color:var(--ink-mid);line-height:1.45}
+.flower-text .canon{margin-top:6px;font-family:'Noto Serif SC','Fraunces',serif;font-weight:400;font-size:13px;color:var(--ink-dim);line-height:1.6;letter-spacing:0.06em}
+.flower-text .num{margin-top:10px;font-family:'JetBrains Mono',monospace;font-size:9px;letter-spacing:0.3em;color:var(--ink-dim);opacity:0.65}
+
+.initial-hint{
+  position:absolute;inset:auto 0 20px 0;text-align:center;
+  font-family:'Fraunces',serif;font-style:italic;font-size:15px;color:var(--ink-dim);
+  transition:opacity 0.4s ease;pointer-events:none;
+}
+.initial-hint.hidden{opacity:0}
+
+/* footer */
+footer{text-align:center;padding:28px 20px 36px;font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:0.24em;text-transform:uppercase;color:var(--ink-dim)}
+footer a{color:var(--ink-mid);text-decoration:none;margin:0 8px}
+footer a:hover{color:var(--ink)}
+
+/* 隐形 SVG 库: 存每朵花的 <path>, 用 getPointAtLength 采样 */
+.hidden-paths{position:absolute;width:0;height:0;visibility:hidden;pointer-events:none}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="brand">flower language · 花语</div>
+  <a href="../../index.html">← Neil's Land</a>
+</header>
+
+<section class="hero">
+  <h1>Flower <em>Language</em></h1>
+  <div class="tag">一个词，一朵花 — say a word, meet a flower.</div>
+
+  <div class="search">
+    <input type="text" id="q" placeholder="思念 / courage / new beginning" autocomplete="off" spellcheck="false"/>
+  </div>
+
+  <div class="hints">
+    <span class="label">try:</span>
+    <button data-q="思念">思念</button>
+    <button data-q="勇气">勇气</button>
+    <button data-q="告白">告白</button>
+    <button data-q="对不起">对不起</button>
+    <button data-q="谢谢妈妈">谢谢妈妈</button>
+    <button data-q="我很累">我很累</button>
+    <button data-q="坚持">坚持</button>
+    <button data-q="告别">告别</button>
+    <button data-q="希望">希望</button>
+  </div>
+</section>
+
+<div class="stage">
+  <canvas id="fx"></canvas>
+  <div class="initial-hint" id="hintMsg">粒子正在等你说一个词</div>
+</div>
+
+<section class="flower-text" id="text"></section>
+
+<footer>
+  <a href="../../index.html">Neil's Land</a> · flower language · <a href="mailto:violandernnn@gmail.com">contact</a>
+</footer>
+
+<!-- 隐形 path 库: 每朵花是一根简笔画路径, 粒子从这些路径采目标点 -->
+<svg class="hidden-paths" viewBox="0 0 300 300">
+  <!-- 所有 path 都在 300x300 的 viewBox 里,  粒子系统会按比例映射到 canvas -->
+
+  <!-- 玫瑰: 螺旋+茎+叶 一根路径 -->
+  <path id="p-rose-red" d="
+    M 150 120
+    C 140 110, 140 130, 150 130
+    C 160 130, 160 110, 148 105
+    C 128 100, 120 130, 140 140
+    C 165 150, 175 115, 155 95
+    C 125 80, 95 110, 110 140
+    C 130 175, 175 175, 188 145
+    C 200 110, 165 78, 130 82
+    M 150 148
+    C 148 180, 152 210, 150 240
+    C 150 250, 152 260, 150 270
+    M 150 210
+    C 140 205, 125 215, 120 230
+    C 130 238, 148 225, 150 215
+    M 150 230
+    C 165 225, 180 235, 185 245
+  "/>
+
+  <!-- 白紫罗兰: 5 瓣 -->
+  <path id="p-violet-white" d="
+    M 150 140
+    C 135 115, 100 108, 98 130
+    C 108 150, 138 148, 150 140
+    C 165 115, 200 108, 202 130
+    C 192 150, 162 148, 150 140
+    C 130 145, 100 165, 108 188
+    C 132 198, 152 180, 150 160
+    C 150 160, 170 180, 168 188
+    C 192 180, 200 145, 150 140
+    C 128 155, 120 200, 150 205
+    C 180 200, 172 155, 150 140
+    M 150 150
+    L 150 225
+    M 150 218
+    C 140 214, 130 220, 130 230
+  "/>
+
+  <!-- 铃兰: 弧形茎 + 5 铃铛 -->
+  <path id="p-lily-of-valley" d="
+    M 80 260
+    C 70 220, 72 160, 82 110
+    M 90 260
+    C 100 220, 130 160, 180 110
+    M 168 122
+    C 162 128, 162 140, 172 142
+    C 182 142, 186 130, 180 122
+    C 176 118, 170 120, 168 122
+    M 145 148
+    C 139 154, 139 166, 149 168
+    C 159 168, 163 156, 157 148
+    C 153 144, 147 146, 145 148
+    M 122 175
+    C 116 181, 116 193, 126 195
+    C 136 195, 140 183, 134 175
+    C 130 171, 124 173, 122 175
+    M 100 205
+    C 94 211, 94 223, 104 225
+    C 114 225, 118 213, 112 205
+    C 108 201, 102 203, 100 205
+  "/>
+
+  <!-- 向日葵: 花心+花瓣+茎+叶 -->
+  <path id="p-sunflower" d="
+    M 150 100
+    C 130 100, 120 115, 122 135
+    C 130 150, 165 155, 178 140
+    C 188 120, 175 100, 150 100
+    M 150 80 L 155 105
+    M 172 85 L 170 110
+    M 192 100 L 182 118
+    M 200 120 L 188 132
+    M 200 145 L 185 145
+    M 192 170 L 180 158
+    M 170 185 L 170 160
+    M 145 185 L 152 158
+    M 125 175 L 135 158
+    M 108 158 L 122 148
+    M 105 135 L 120 138
+    M 112 112 L 125 122
+    M 130 95 L 140 115
+    M 150 150
+    C 148 175, 150 210, 150 260
+    M 150 215
+    C 130 210, 110 220, 105 235
+    C 118 240, 145 225, 150 225
+  "/>
+
+  <!-- 勿忘我: 4 朵小花聚集 -->
+  <path id="p-forget-me-not" d="
+    M 150 130
+    C 135 125, 125 140, 135 152
+    C 150 158, 160 145, 155 132
+    C 170 120, 170 140, 158 145
+    C 168 158, 155 168, 145 160
+    C 140 152, 145 138, 150 130
+    M 190 110
+    C 182 108, 178 116, 184 122
+    C 192 125, 196 118, 193 112
+    C 188 108, 186 112, 190 110
+    M 110 112
+    C 102 110, 98 118, 104 124
+    C 112 127, 116 120, 113 114
+    C 108 110, 106 114, 110 112
+    M 175 180
+    C 168 180, 166 188, 172 192
+    C 180 192, 182 186, 178 182
+    M 150 168
+    C 150 200, 150 240, 150 260
+    M 150 225
+    C 135 222, 125 232, 128 240
+  "/>
+
+  <!-- 牡丹: 多层花瓣 -->
+  <path id="p-peony" d="
+    M 150 100
+    C 115 90, 85 115, 95 150
+    C 85 165, 95 195, 125 198
+    C 140 210, 165 210, 175 198
+    C 205 195, 215 165, 205 150
+    C 215 115, 185 90, 150 100
+    M 120 130
+    C 125 115, 155 115, 160 130
+    M 160 130
+    C 155 115, 185 115, 190 135
+    M 130 155
+    C 140 150, 160 150, 175 155
+    M 175 155
+    C 180 150, 195 152, 195 165
+    M 130 180
+    C 140 175, 155 175, 160 180
+    M 160 180
+    C 165 175, 180 177, 180 188
+    M 150 130
+    C 150 125, 160 125, 160 132
+    C 160 138, 155 140, 152 138
+    M 150 198
+    C 150 225, 148 255, 150 275
+    M 150 240
+    C 165 235, 180 245, 180 255
+  "/>
+
+  <!-- 红郁金香: 杯状三瓣 -->
+  <path id="p-tulip-red" d="
+    M 150 145
+    C 125 130, 120 80, 150 50
+    C 180 80, 175 130, 150 145
+    C 110 140, 95 90, 120 65
+    C 128 88, 135 115, 150 145
+    C 190 140, 205 90, 180 65
+    C 172 88, 165 115, 150 145
+    M 150 145
+    C 150 180, 148 230, 150 270
+    M 150 220
+    C 125 225, 110 250, 115 265
+    M 150 230
+    C 175 232, 190 252, 185 265
+  "/>
+
+  <!-- 薰衣草: 穗 -->
+  <path id="p-lavender" d="
+    M 150 130 L 150 270
+    M 145 140 C 140 142, 140 148, 145 150 C 152 150, 154 144, 149 140 C 146 138, 144 140, 145 140
+    M 155 120 C 150 122, 150 128, 155 130 C 162 130, 164 124, 159 120
+    M 144 100 C 139 102, 139 108, 144 110 C 151 110, 153 104, 148 100
+    M 156 80 C 151 82, 151 88, 156 90 C 163 90, 165 84, 160 80
+    M 146 62 C 141 64, 141 70, 146 72 C 153 72, 155 66, 150 62
+    M 154 46 C 149 48, 149 54, 154 56 C 161 56, 163 50, 158 46
+    M 150 32 C 146 34, 146 40, 150 42 C 156 42, 158 36, 154 32
+    M 150 225 C 140 230, 135 240, 138 250
+    M 150 200 C 162 205, 170 215, 165 222
+  "/>
+
+  <!-- 雏菊: 12 瓣 + 花心 + 茎 -->
+  <path id="p-daisy" d="
+    M 150 130
+    C 140 125, 140 115, 150 110
+    C 160 115, 160 125, 150 130
+    M 150 130
+    C 164 127, 174 117, 174 105
+    M 150 130
+    C 172 130, 185 115, 185 100
+    M 150 130
+    C 175 140, 192 130, 197 118
+    M 150 130
+    C 172 148, 195 150, 205 140
+    M 150 130
+    C 162 158, 180 172, 195 170
+    M 150 130
+    C 152 162, 166 182, 180 185
+    M 150 130
+    C 145 164, 154 190, 166 198
+    M 150 130
+    C 138 160, 140 188, 150 200
+    M 150 130
+    C 130 156, 120 180, 128 198
+    M 150 130
+    C 128 150, 110 168, 110 185
+    M 150 130
+    C 125 142, 108 150, 100 160
+    M 150 140 L 150 270
+    M 150 220 C 165 218, 180 228, 180 240
+  "/>
+
+  <!-- 鸢尾: 6 瓣 -->
+  <path id="p-iris" d="
+    M 150 140
+    C 130 145, 115 165, 135 180
+    C 150 180, 160 165, 150 150
+    M 150 140
+    C 170 145, 185 165, 165 180
+    C 150 180, 140 165, 150 150
+    M 150 140
+    C 130 135, 110 150, 120 170
+    M 150 140
+    C 170 135, 190 150, 180 170
+    M 150 130
+    C 135 110, 130 70, 150 60
+    C 170 70, 165 110, 150 130
+    M 150 130
+    C 128 108, 115 70, 130 55
+    M 150 130
+    C 172 108, 185 70, 170 55
+    M 150 165 L 150 200 stroke-width=2
+    M 150 180
+    C 148 220, 150 250, 150 270
+  "/>
+
+  <!-- 山茶: 5 圆润花瓣 -->
+  <path id="p-camellia" d="
+    M 150 100
+    C 110 90, 90 120, 105 155
+    C 95 180, 130 205, 150 195
+    C 170 205, 205 180, 195 155
+    C 210 120, 190 90, 150 100
+    M 150 115
+    C 130 120, 120 140, 130 158
+    C 145 168, 165 158, 170 140
+    C 170 120, 160 112, 150 115
+    M 150 195 L 150 270
+    M 150 225
+    C 125 230, 115 250, 118 262
+  "/>
+
+  <!-- 樱花: 5 瓣带 V 型凹口 (sakura 标志性花瓣) + 花蕊 + 细茎 -->
+  <path id="p-cherry-blossom" d="
+    M 138 140
+    C 120 128, 115 108, 132 95
+    L 150 114
+    L 168 95
+    C 185 108, 180 128, 162 140
+    M 151 132
+    C 157 111, 174 100, 192 112
+    L 180 135
+    L 203 147
+    C 196 167, 175 168, 158 155
+    M 163 142
+    C 184 141, 200 154, 194 175
+    L 168 170
+    L 165 196
+    C 143 196, 136 176, 143 156
+    M 157 156
+    C 164 176, 157 196, 135 196
+    L 132 170
+    L 106 175
+    C 100 154, 116 141, 137 142
+    M 142 155
+    C 125 168, 104 167, 97 147
+    L 121 135
+    L 108 112
+    C 126 100, 143 111, 149 132
+    M 150 145 L 150 128
+    M 150 145 L 164 136
+    M 150 145 L 161 158
+    M 150 145 L 139 158
+    M 150 145 L 136 136
+    M 150 200 C 148 225, 150 255, 150 275
+    M 150 235 C 138 232, 130 244, 135 254
+  "/>
+
+  <!-- 蒲公英: 绒球 + 飘籽 -->
+  <path id="p-dandelion" d="
+    M 150 140 L 150 100
+    M 150 140 L 140 105
+    M 150 140 L 125 108
+    M 150 140 L 115 120
+    M 150 140 L 110 138
+    M 150 140 L 115 158
+    M 150 140 L 128 175
+    M 150 140 L 142 180
+    M 150 140 L 158 180
+    M 150 140 L 172 175
+    M 150 140 L 185 158
+    M 150 140 L 190 138
+    M 150 140 L 185 120
+    M 150 140 L 175 108
+    M 150 140 L 160 105
+    M 150 140 L 150 270
+    M 150 210
+    L 130 205 L 125 215 L 115 210 L 110 220 L 145 220 Z
+    M 215 95
+    L 210 92 L 220 92
+    L 215 88 L 215 98
+    M 85 110
+    L 80 108 L 90 108
+    M 230 150
+    L 226 148 L 234 148
+  "/>
+
+  <!-- 三色堇: 5 瓣 -->
+  <path id="p-pansy" d="
+    M 150 140
+    C 135 115, 105 115, 110 140
+    C 120 158, 142 155, 150 140
+    C 165 115, 195 115, 190 140
+    C 180 158, 158 155, 150 140
+    C 125 150, 108 180, 115 200
+    C 135 208, 150 195, 150 175
+    C 150 175, 165 195, 185 208
+    C 192 200, 175 170, 150 150
+    C 125 160, 115 200, 150 208
+    C 185 200, 175 160, 150 140
+    M 150 150 L 145 195
+    M 150 150 L 150 205
+    M 150 150 L 155 195
+    M 150 220 L 150 270
+    M 150 250 C 138 248, 128 258, 132 268
+  "/>
+
+  <!-- 百合: 6 瓣正视 + 花蕊 -->
+  <path id="p-lily" d="
+    M 150 130
+    C 142 100, 145 75, 148 55
+    C 154 75, 158 100, 150 130
+    M 150 130
+    C 172 108, 200 98, 212 92
+    C 205 118, 178 136, 152 138
+    M 150 130
+    C 172 155, 200 170, 212 176
+    C 205 150, 178 136, 152 138
+    M 150 130
+    C 128 108, 100 98, 88 92
+    C 95 118, 122 136, 148 138
+    M 150 130
+    C 128 155, 100 170, 88 176
+    C 95 150, 122 136, 148 138
+    M 146 128 L 142 102
+    M 150 128 L 150 98
+    M 154 128 L 158 102
+    M 150 138
+    C 148 175, 150 225, 150 270
+    M 150 205
+    C 132 200, 122 215, 126 230
+  "/>
+
+  <!-- 栀子: 螺旋花瓣 -->
+  <path id="p-gardenia" d="
+    M 150 100
+    C 115 100, 92 130, 108 158
+    C 90 185, 118 212, 148 200
+    C 158 218, 198 208, 200 175
+    C 225 162, 218 118, 182 112
+    C 180 85, 148 92, 150 100
+    M 145 120
+    C 125 125, 115 148, 128 162
+    C 140 170, 158 162, 165 145
+    C 170 125, 158 115, 145 120
+    M 148 130
+    C 142 135, 145 145, 152 145
+    C 158 138, 155 128, 148 130
+    M 150 212
+    C 148 240, 150 265, 150 275
+    M 150 245
+    C 135 240, 125 252, 128 262
+  "/>
+
+  <!-- 风信子: 串状花序 -->
+  <path id="p-hyacinth" d="
+    M 150 128 L 150 272
+    M 140 125 C 130 123, 130 137, 140 140 C 152 142, 160 134, 152 124
+    M 160 110 C 170 112, 170 98, 160 95 C 148 93, 140 101, 148 111
+    M 140 97 C 130 95, 130 109, 140 112 C 152 114, 160 106, 152 96
+    M 160 82 C 170 84, 170 70, 160 67 C 148 65, 140 73, 148 83
+    M 140 69 C 130 67, 130 81, 140 84 C 152 86, 160 78, 152 68
+    M 155 54 C 165 56, 165 42, 155 39 C 143 37, 135 45, 143 55
+    M 150 25 C 158 27, 162 18, 155 15 C 148 13, 142 20, 148 27
+    M 135 248 C 122 242, 110 258, 118 268
+    M 165 232 C 180 238, 190 252, 180 265
+  "/>
+
+  <!-- 木兰: 5 瓣大花 -->
+  <path id="p-magnolia" d="
+    M 150 100
+    C 132 98, 118 118, 130 140
+    C 145 148, 165 142, 170 122
+    C 170 105, 158 95, 150 100
+    M 150 100
+    C 115 108, 88 135, 105 165
+    C 130 180, 150 165, 148 138
+    M 150 100
+    C 185 108, 212 135, 195 165
+    C 170 180, 150 165, 152 138
+    M 135 155
+    C 110 175, 110 215, 140 220
+    C 155 215, 158 185, 148 160
+    M 165 155
+    C 190 175, 190 215, 160 220
+    C 145 215, 142 185, 152 160
+    M 148 135
+    C 145 140, 150 148, 152 143
+    C 156 138, 151 130, 148 135
+    M 150 220
+    C 148 248, 150 270, 150 280
+    M 150 245
+    C 168 240, 180 255, 175 268
+  "/>
+
+  <!-- 睡莲: 水面 + 10 尖瓣 + 花心 -->
+  <path id="p-water-lily" d="
+    M 150 150
+    C 140 128, 145 100, 150 88
+    C 155 100, 160 128, 150 150
+    M 150 150
+    C 170 135, 190 115, 200 108
+    C 195 130, 182 145, 155 152
+    M 150 150
+    C 185 145, 210 130, 220 140
+    C 215 160, 195 168, 160 155
+    M 150 150
+    C 190 155, 215 170, 218 185
+    C 205 195, 185 190, 155 165
+    M 150 150
+    C 180 170, 195 195, 195 210
+    C 175 215, 158 200, 150 172
+    M 150 150
+    C 120 170, 105 195, 105 210
+    C 125 215, 142 200, 150 172
+    M 150 150
+    C 110 155, 85 170, 82 185
+    C 95 195, 115 190, 145 165
+    M 150 150
+    C 115 145, 90 130, 80 140
+    C 85 160, 105 168, 140 155
+    M 150 150
+    C 130 135, 110 115, 100 108
+    C 105 130, 118 145, 145 152
+    M 145 152 C 147 170, 148 180, 146 190
+    M 150 152 L 150 195
+    M 155 152 C 153 170, 152 180, 154 190
+    M 60 235 C 95 228, 125 238, 155 232 C 185 238, 215 228, 245 235
+  "/>
+
+  <!-- 康乃馨: 锯齿花瓣密叠 -->
+  <path id="p-carnation" d="
+    M 128 120
+    L 132 108 L 138 116 L 142 104 L 148 114
+    L 152 102 L 158 112 L 162 104 L 168 114
+    L 172 106 L 176 118
+    M 122 128
+    C 105 125, 92 145, 108 162
+    C 125 175, 152 172, 162 160
+    C 182 172, 200 158, 198 140
+    C 198 120, 178 115, 172 122
+    M 112 158 L 108 168 L 118 168
+    M 125 168 L 122 178 L 132 178
+    M 140 174 L 138 184 L 148 184
+    M 160 174 L 158 184 L 168 184
+    M 180 170 L 180 180 L 190 178
+    M 150 172
+    C 148 202, 150 250, 150 275
+    M 150 225
+    C 135 222, 125 235, 128 245
+    M 150 215
+    C 170 212, 185 200, 182 190
+  "/>
+
+  <!-- 菊: 放射线条 + 中心 -->
+  <path id="p-chrysanthemum" d="
+    M 150 150 L 150 95
+    M 150 150 L 142 98
+    M 150 150 L 132 105
+    M 150 150 L 120 115
+    M 150 150 L 110 128
+    M 150 150 L 100 145
+    M 150 150 L 100 162
+    M 150 150 L 110 180
+    M 150 150 L 122 195
+    M 150 150 L 135 205
+    M 150 150 L 148 212
+    M 150 150 L 162 205
+    M 150 150 L 175 195
+    M 150 150 L 188 180
+    M 150 150 L 198 162
+    M 150 150 L 198 145
+    M 150 150 L 188 128
+    M 150 150 L 178 115
+    M 150 150 L 168 105
+    M 150 150 L 158 98
+    M 146 140
+    C 142 148, 148 158, 154 154
+    C 158 146, 152 138, 146 140
+    M 150 150
+    C 148 200, 150 250, 150 275
+    M 150 220
+    C 168 218, 182 230, 180 245
+  "/>
+
+  <!-- 梅花: 硬枝 + 4 朵 5 瓣小花 -->
+  <path id="p-plum-blossom" d="
+    M 40 260 L 80 220 L 130 180 L 175 130 L 220 80
+    M 130 180 L 160 160
+    M 175 130 L 200 135
+    M 100 200 L 120 195
+    M 85 215
+    C 75 215, 72 225, 82 228
+    C 92 228, 95 220, 88 214
+    C 84 211, 82 214, 85 215
+    M 85 215 L 85 204
+    M 80 218 L 72 220
+    M 92 218 L 100 220
+    M 82 222 L 76 228
+    M 88 222 L 94 228
+    M 135 175
+    C 125 175, 122 185, 132 188
+    C 142 188, 145 180, 138 174
+    C 134 171, 132 174, 135 175
+    M 135 175 L 135 164
+    M 130 178 L 122 180
+    M 142 178 L 150 180
+    M 178 128
+    C 168 128, 165 138, 175 141
+    C 185 141, 188 133, 181 127
+    C 177 124, 175 127, 178 128
+    M 178 128 L 178 117
+    M 173 131 L 165 133
+    M 185 131 L 193 133
+    M 210 90
+    C 200 90, 197 100, 207 103
+    C 217 103, 220 95, 213 89
+    C 209 86, 207 89, 210 90
+    M 210 90 L 210 79
+    M 205 93 L 197 95
+    M 217 93 L 225 95
+  "/>
+
+  <!-- 绣球: 圆球由多个小 4 瓣花组成 -->
+  <path id="p-hydrangea" d="
+    M 150 100
+    C 115 95, 88 120, 90 155
+    C 88 195, 115 218, 150 215
+    C 185 218, 212 195, 210 155
+    C 212 120, 185 95, 150 100
+    M 150 118
+    C 144 113, 138 118, 140 125
+    C 145 130, 152 127, 152 120
+    C 150 115, 148 117, 150 118
+    M 128 128
+    C 122 123, 116 128, 118 135
+    C 123 140, 130 137, 130 130
+    M 172 128
+    C 166 123, 160 128, 162 135
+    C 167 140, 174 137, 174 130
+    M 115 152
+    C 109 147, 103 152, 105 159
+    C 110 164, 117 161, 117 154
+    M 150 155
+    C 144 150, 138 155, 140 162
+    C 145 167, 152 164, 152 157
+    M 185 152
+    C 179 147, 173 152, 175 159
+    C 180 164, 187 161, 187 154
+    M 128 178
+    C 122 173, 116 178, 118 185
+    C 123 190, 130 187, 130 180
+    M 172 178
+    C 166 173, 160 178, 162 185
+    C 167 190, 174 187, 174 180
+    M 150 195
+    C 144 190, 138 195, 140 202
+    C 145 207, 152 204, 152 197
+    M 150 218
+    C 148 245, 150 268, 150 278
+    M 150 245
+    C 135 242, 125 255, 128 265
+  "/>
+
+  <!-- 紫藤: 拱枝 + 3 串下垂花 -->
+  <path id="p-wisteria" d="
+    M 60 60 L 110 100 L 150 120 L 200 90 L 250 60
+    M 110 100 L 110 158
+    M 110 160
+    C 104 158, 100 166, 106 170
+    C 114 172, 118 165, 114 158
+    M 108 172 L 106 180
+    M 110 180
+    C 104 180, 100 188, 106 192
+    C 114 192, 118 185, 114 178
+    M 108 194 L 106 202
+    M 110 202
+    C 104 202, 100 210, 106 214
+    C 114 214, 118 207, 114 200
+    M 110 216 L 110 226
+    C 106 228, 106 236, 112 236
+    M 150 120 L 150 175
+    M 150 175
+    C 144 173, 140 181, 146 185
+    C 154 187, 158 180, 154 173
+    M 150 187 L 150 197
+    C 144 199, 144 207, 150 208
+    M 150 210 L 150 222
+    C 146 224, 148 230, 152 230
+    M 200 90 L 200 150
+    M 200 150
+    C 194 148, 190 156, 196 160
+    C 204 162, 208 155, 204 148
+    M 200 162 L 200 172
+    C 194 174, 194 182, 200 183
+    M 200 185 L 200 197
+    C 196 199, 198 206, 204 206
+  "/>
+
+  <!-- 满天星: 散点小花 + 细茎 -->
+  <path id="p-babys-breath" d="
+    M 150 95
+    C 146 92, 144 98, 148 100
+    C 153 102, 155 98, 151 95
+    C 150 93, 148 94, 150 95
+    M 150 95 L 150 85
+    M 145 98 L 140 100
+    M 155 98 L 160 100
+    M 110 125
+    C 106 122, 104 128, 108 130
+    C 113 132, 115 128, 111 125
+    M 110 125 L 110 117
+    M 105 128 L 100 130
+    M 115 128 L 120 130
+    M 195 120
+    C 191 117, 189 123, 193 125
+    C 198 127, 200 123, 196 120
+    M 195 120 L 195 112
+    M 190 123 L 185 125
+    M 200 123 L 205 125
+    M 130 155
+    C 126 152, 124 158, 128 160
+    C 133 162, 135 158, 131 155
+    M 130 155 L 130 147
+    M 170 170
+    C 166 167, 164 173, 168 175
+    C 173 177, 175 173, 171 170
+    M 170 170 L 170 162
+    M 88 165
+    C 84 162, 82 168, 86 170
+    C 91 172, 93 168, 89 165
+    M 88 165 L 88 157
+    M 210 155
+    C 206 152, 204 158, 208 160
+    C 213 162, 215 158, 211 155
+    M 210 155 L 210 147
+    M 150 195
+    C 146 192, 144 198, 148 200
+    C 153 202, 155 198, 151 195
+    M 150 195 L 150 187
+    M 150 205 L 150 275
+    M 150 240
+    C 135 237, 125 250, 128 260
+  "/>
+
+  <!-- 桔梗: 5 瓣星形 + 细茎 -->
+  <path id="p-balloon-flower" d="
+    M 150 140
+    C 140 135, 128 125, 122 110
+    C 128 100, 142 100, 146 112
+    C 149 125, 150 135, 150 140
+    M 150 140
+    C 160 135, 172 125, 178 110
+    C 172 100, 158 100, 154 112
+    C 151 125, 150 135, 150 140
+    M 150 140
+    C 138 145, 120 150, 102 148
+    C 98 160, 110 172, 125 166
+    C 138 160, 148 148, 150 140
+    M 150 140
+    C 162 145, 180 150, 198 148
+    C 202 160, 190 172, 175 166
+    C 162 160, 152 148, 150 140
+    M 150 140
+    C 145 155, 138 180, 144 198
+    C 156 198, 162 180, 156 160
+    C 152 148, 150 142, 150 140
+    M 148 135 L 150 143 L 152 135
+    M 150 198
+    C 148 228, 150 258, 150 278
+    M 150 238
+    C 135 235, 125 248, 128 258
+  "/>
+</svg>
+
+<script>
+/* ============ 26 朵花数据 ============ */
+const FLOWERS = [
+  { id:'rose-red', zh:'红玫瑰', en:'Red Rose',
+    tags:['爱情','love','热情','passion','心动','romance','表白','confession','炽热','我喜欢你','i love you','浪漫','玫瑰','rose'],
+    meaning:'炽热的爱',
+    canon:'热恋、真挚的爱、我爱你' },
+  { id:'violet-white', zh:'白紫罗兰', en:'White Violet',
+    tags:['谦逊','modesty','纯真','innocence','忠诚','faithfulness','秘密','secret','请相信我','trust','信任','承诺','promise','低调','violet'],
+    meaning:'请相信我',
+    canon:'纯真、诚实、让我们抓住幸福的机会' },
+  { id:'lily-of-valley', zh:'铃兰', en:'Lily of the Valley',
+    tags:['幸福归来','happiness','return','纯洁','purity','谦逊','humility','重新开始','new beginning','希望','hope','幸福','小确幸','微小的美好','重启','restart'],
+    meaning:'幸福终将归来',
+    canon:'幸福归来、纯洁、谦逊' },
+  { id:'sunflower', zh:'向日葵', en:'Sunflower',
+    tags:['忠诚','loyalty','爱慕','adoration','希望','hope','阳光','sunshine','坚定','steadfast','仰望','追光','温暖','warm','乐观','optimistic'],
+    meaning:'永远追光',
+    canon:'沉默的爱、忠诚、仰慕' },
+  { id:'forget-me-not', zh:'勿忘我', en:'Forget-Me-Not',
+    tags:['思念','remembrance','永恒','eternal','记得我','remember','真爱','true love','离别','farewell','别忘记','miss','想念','回忆','memory','蓝'],
+    meaning:'别忘了我',
+    canon:'永恒的爱、永远的回忆、请别忘记我' },
+  { id:'peony', zh:'牡丹', en:'Peony',
+    tags:['富贵','prosperity','羞涩','bashfulness','幸福的婚姻','happy marriage','繁盛','flourish','丰盈','婚姻','暗恋','crush','丰饶','喜欢你','国色','盛放'],
+    meaning:'繁盛而羞涩的幸福',
+    canon:'富贵、圆满、国色天香' },
+  { id:'tulip-red', zh:'红郁金香', en:'Red Tulip',
+    tags:['告白','confession','爱的宣言','declaration','热爱','love','胜利','victory','热情','表白','喜欢你','like you','我爱你','鼓起勇气','tulip'],
+    meaning:'爱的宣言',
+    canon:'爱的宣言、热烈的爱、喜悦' },
+  { id:'lavender', zh:'薰衣草', en:'Lavender',
+    tags:['等待','waiting','静谧','calm','宁静','serenity','记忆','memory','治愈','healing','等待爱情','我很累','失眠','助眠','紫色','普罗旺斯'],
+    meaning:'等待爱情',
+    canon:'等待爱情、心心相印、浪漫' },
+  { id:'daisy', zh:'雏菊', en:'Daisy',
+    tags:['纯真','innocence','希望','hope','和平','peace','幸福','happiness','天真','童心','童年','daydream','白日梦','简单','simple','小雏菊'],
+    meaning:'藏在最简单里的希望',
+    canon:'天真、和平、深藏在心底的爱' },
+  { id:'iris', zh:'鸢尾', en:'Iris',
+    tags:['勇气','courage','光明','light','好消息','good news','自由','freedom','力量','strength','彩虹','预兆','rainbow','启程','depart','加油'],
+    meaning:'勇气与光明的预兆',
+    canon:'好消息、优雅、想念你' },
+  { id:'camellia', zh:'山茶', en:'Camellia',
+    tags:['谦让','modesty','理想的爱','ideal love','坚强','strength','魅力','charm','质朴','冬日','冬天','winter','低调','安静','quiet','山茶花'],
+    meaning:'不张扬的坚强',
+    canon:'可爱、谦让、理想的爱' },
+  { id:'cherry-blossom', zh:'樱花', en:'Cherry Blossom',
+    tags:['淡泊','nonchalance','短暂','ephemeral','纯洁','purity','重生','renewal','告别','farewell','春天','spring','樱','落下','绽放','日本','sakura'],
+    meaning:'短暂而美的告别',
+    canon:'生命之美、精神之美、淡泊' },
+  { id:'dandelion', zh:'蒲公英', en:'Dandelion',
+    tags:['自由','freedom','离别','farewell','无法停留','cannot stay','思念','remembrance','远行','journey','远方','出发','漂泊','风','wind','流浪'],
+    meaning:'风把它带向远方',
+    canon:'无法停留的爱、自由、勇敢' },
+  { id:'pansy', zh:'三色堇', en:'Pansy',
+    tags:['沉思','thought','请想念我','think of me','快乐','joy','思考','meditation','小秘密','思虑','想你','心事','多心','胡思乱想'],
+    meaning:'想着你',
+    canon:'沉思、请想念我、快乐' },
+  { id:'lily', zh:'百合', en:'Lily',
+    tags:['纯洁','purity','祝福','blessing','庄严','dignity','高贵','noble','百年好合','婚礼','wedding','新娘','bride','仪式','典礼','百合'],
+    meaning:'一句没说出口的祝福',
+    canon:'百年好合、纯洁、高贵的祝福' },
+  { id:'gardenia', zh:'栀子', en:'Gardenia',
+    tags:['喜悦','joy','纯粹','pure','悄悄的爱','secret love','夏天','summer','初恋','first love','暗恋','少年','校园','清香','白色','栀子花'],
+    meaning:'悄悄欢喜，一整个夏天',
+    canon:'一生守候、永恒的爱、喜悦' },
+  { id:'hyacinth', zh:'风信子', en:'Hyacinth',
+    tags:['道歉','apology','对不起','sorry','和解','reconcile','重生','rebirth','新的开始','fresh start','原谅','forgive','悔意','春天','spring','请原谅','我错了'],
+    meaning:'慢慢说出口的对不起',
+    canon:'对不起、请原谅我、悲伤而忧郁的爱' },
+  { id:'magnolia', zh:'木兰', en:'Magnolia',
+    tags:['自爱','self love','高贵','noble','尊严','dignity','独立','independent','先行','pioneer','春天','spring','一个人','solitude','内在力量','inner strength','花木兰'],
+    meaning:'自己就是一场春',
+    canon:'纯洁的爱、高贵出尘、真挚' },
+  { id:'water-lily', zh:'睡莲', en:'Water Lily',
+    tags:['宁静','serenity','平静','calm','梦','dream','休息','rest','疲惫','weary','放下','let go','冥想','meditation','治愈','healing','我很累','tired','减压','莫奈'],
+    meaning:'水面上的停留，也是一种开',
+    canon:'淡泊、纯真、清净之心' },
+  { id:'carnation', zh:'康乃馨', en:'Carnation',
+    tags:['感激','gratitude','谢谢','thank you','thanks','母亲','mother','妈妈','mom','谢谢妈妈','母爱','maternal','家','home','养育','温柔','warmth','母亲节','报答','感恩'],
+    meaning:'写给妈妈的那句粉色',
+    canon:'母亲我爱你、温馨、不求回报的爱' },
+  { id:'chrysanthemum', zh:'菊', en:'Chrysanthemum',
+    tags:['高洁','noble','悠远','distant','缅怀','remembrance','秋天','autumn','fall','隐逸','seclusion','东篱','淡然','quiet','独处','solitude','思念逝者','祭奠','菊花'],
+    meaning:'秋天最后一笔，落在东篱',
+    canon:'清净高洁、怀念、君子品格' },
+  { id:'plum-blossom', zh:'梅花', en:'Plum Blossom',
+    tags:['坚韧','resilience','孤高','pride','寒冬','winter','傲骨','persevere','不合群','晚成','late bloom','逆境','adversity','独自盛开','不服输','坚持','梅'],
+    meaning:'梅花香自苦寒来',
+    canon:'坚韧、傲骨、高洁' },
+  { id:'hydrangea', zh:'绣球', en:'Hydrangea',
+    tags:['团聚','reunion','心思','thoughts','犹豫','hesitation','变化','change','家人','family','多心','many minds','梅雨','蓝紫','拿不定主意','纠结','绣球花'],
+    meaning:'一朵里藏着一百朵的犹豫',
+    canon:'希望、团聚、美满' },
+  { id:'wisteria', zh:'紫藤', en:'Wisteria',
+    tags:['缠绵','tender','温柔','gentle','等','waiting','长久','lasting','旧时光','nostalgia','慢','slow','垂落','drape','浪漫','romance','四月','april','老友','长廊','紫藤'],
+    meaning:'一条慢下来的时间',
+    canon:'沉迷的爱、执着、为爱痴狂' },
+  { id:'babys-breath', zh:'满天星', en:"Baby's Breath",
+    tags:['守护','protection','默默的爱','quiet love','陪伴','companionship','纯真','pure','配角','background','星星','stars','永恒','everlasting','朋友','friendship','我会等你','满天星'],
+    meaning:'最小的白陪着最大的喜欢',
+    canon:'衷心欢喜、关怀、纯洁的心' },
+  { id:'balloon-flower', zh:'桔梗', en:'Balloon Flower',
+    tags:['永恒的爱','eternal love','不变','unchanging','真诚','sincere','承诺','promise','一心','faithful','紫','purple','初秋','early autumn','earnest','坚守','忠贞','紫蓝','桔梗'],
+    meaning:'紫色的铃，收着一句不变',
+    canon:'永恒不变的爱、真诚、幸福再度降临' },
+];
+
+/* ============ 搜索匹配 ============ */
+function search(qRaw){
+  const q = (qRaw || '').trim().toLowerCase();
+  if(!q) return null;
+  const terms = q.split(/[\s,，、]+/).filter(Boolean);
+  const scored = FLOWERS.map(f => {
+    const hay = [f.zh, f.en, f.meaning, ...f.tags].join(' ').toLowerCase();
+    let score = 0;
+    for(const t of terms){
+      if(!t) continue;
+      if(f.tags.some(tag => tag.toLowerCase() === t)) score += 3;
+      else if(f.tags.some(tag => tag.toLowerCase().includes(t))) score += 2;
+      else if(hay.includes(t)) score += 1;
+    }
+    return { flower:f, score };
+  }).filter(x => x.score > 0);
+  scored.sort((a,b) => b.score - a.score);
+  return scored[0] ? scored[0].flower : null;
+}
+
+/* ============ 粒子系统 ============ */
+const canvas = document.getElementById('fx');
+const ctx = canvas.getContext('2d');
+const dpr = Math.min(window.devicePixelRatio || 1, 2);
+
+const N = 820;
+const parts = [];
+let W = 0, H = 0;
+let mode = 'cluster';      // 'cluster' | 'flower'
+let currentFlowerId = null;
+let cachedPoints = {};
+
+function resize(){
+  const r = canvas.getBoundingClientRect();
+  W = r.width || 560; H = r.height || 560;
+  canvas.width = W * dpr; canvas.height = H * dpr;
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  if(parts.length){
+    if(mode === 'cluster') seedCluster();
+    else if(currentFlowerId) seedFlower(currentFlowerId);
+  }
+}
+
+function initParticles(){
+  for(let i=0;i<N;i++){
+    parts.push({
+      x: Math.random()*W, y: Math.random()*H,
+      tx: W/2, ty: H/2,
+      /* 新 target 会先存这里,到 transitionAt 时才正式切过去 */
+      newTx: undefined, newTy: undefined, transitionAt: 0,
+      vx:0, vy:0,
+      size: 0.6 + Math.random()*0.9,
+      alpha: 0.55 + Math.random()*0.35,
+      phase: Math.random()*Math.PI*2,
+    });
+  }
+}
+
+/* 错峰赋新 target: 按"距当前点的距离"错峰 —
+   远的早动,近的晚动,形成"从外向内汇聚"的方向感,不是大开大合的散 */
+function assignTargets(getXY, maxDelay){
+  const now = performance.now();
+  /* 先算出所有距离,归一化,用来推导每个粒子的 delay */
+  const dists = parts.map((p, i) => {
+    const [tx, ty] = getXY(i);
+    return Math.hypot(tx - p.x, ty - p.y);
+  });
+  const maxD = Math.max(...dists) || 1;
+  parts.forEach((p, i) => {
+    const [tx, ty] = getXY(i);
+    p.newTx = tx; p.newTy = ty;
+    /* 远的 delay 接近 0, 近的 delay 接近 maxDelay, 加一点随机避免齐整 */
+    const norm = 1 - dists[i] / maxD;        // 近→1,远→0
+    p.transitionAt = now + norm * maxDelay * 0.7 + Math.random() * maxDelay * 0.3;
+  });
+}
+
+function seedCluster(){
+  const cx = W/2, cy = H/2;
+  assignTargets(() => {
+    const a = Math.random()*Math.PI*2;
+    const r = Math.random()*Math.min(W,H)*0.08;
+    return [cx + Math.cos(a)*r, cy + Math.sin(a)*r];
+  }, 900);
+}
+
+function samplePath(pathEl, count){
+  const len = pathEl.getTotalLength();
+  if(len === 0) return [];
+  const pts = [];
+  for(let i=0;i<count;i++){
+    const p = pathEl.getPointAtLength((i/count) * len);
+    pts.push([p.x, p.y]);
+  }
+  return pts;
+}
+
+/* 花的 path 采得密一些, 粒子能沿着线切线方向流动 */
+const FLOWER_SAMPLES = 1800;
+function seedFlower(id){
+  const pathEl = document.getElementById('p-' + id);
+  if(!pathEl){ seedCluster(); return; }
+  if(!cachedPoints[id]) cachedPoints[id] = samplePath(pathEl, FLOWER_SAMPLES);
+  const src = cachedPoints[id];
+  const scale = Math.min(W, H) * 0.85 / 300;
+  const cx = W/2, cy = H/2;
+  /* 每粒子锁定 path 上一个点作为"锚", 成型后在锚点周围小幅呼吸 */
+  parts.forEach(p => {
+    const idx = Math.floor(Math.random() * FLOWER_SAMPLES);
+    const [sx, sy] = src[idx];
+    p.anchorX = cx + (sx - 150) * scale;
+    p.anchorY = cy + (sy - 150) * scale;
+    p.flowerRef = id;
+  });
+  /* 错峰 1100ms 内陆续切到锚点 */
+  assignTargets((i) => [parts[i].anchorX, parts[i].anchorY], 1100);
+}
+
+function loop(){
+  const t = performance.now();
+
+  /* 残影清一些, 线条才锐 */
+  ctx.fillStyle = 'rgba(253,251,245,0.32)';
+  ctx.fillRect(0, 0, W, H);
+
+  parts.forEach(p => {
+    /* 延时切换 target (每粒子独立时刻) */
+    if(p.newTx !== undefined && t >= p.transitionAt){
+      p.tx = p.newTx;
+      p.ty = p.newTy;
+      p.newTx = undefined;
+    }
+    /* cluster: 整体轻微漂动 */
+    if(mode === 'cluster'){
+      p.tx += Math.cos(t*0.0006 + p.phase) * 0.18;
+      p.ty += Math.sin(t*0.0007 + p.phase*1.3) * 0.18;
+    }
+    /* 花态 + 已到位: 粒子只在自己锚点周围 ~3px 半径呼吸, 不沿线漂 */
+    else if(mode === 'flower' && p.newTx === undefined && p.anchorX !== undefined){
+      p.tx = p.anchorX + Math.cos(t*0.0011 + p.phase) * 3.0;
+      p.ty = p.anchorY + Math.sin(t*0.0013 + p.phase*1.3) * 3.0;
+    }
+    const dx = p.tx - p.x, dy = p.ty - p.y;
+    /* 弹簧 + 极小噪声; 粒子跟 target 走, target 本身就在 path 上滑 */
+    const noise = (mode === 'flower') ? 0.008 : 0.03;
+    p.vx += dx * 0.022 + (Math.random()-0.5) * noise;
+    p.vy += dy * 0.022 + (Math.random()-0.5) * noise;
+    p.vx *= 0.88; p.vy *= 0.88;
+    p.x += p.vx; p.y += p.vy;
+
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, p.size, 0, Math.PI*2);
+    const a = p.alpha * (0.65 + Math.sin(t*0.001 + p.phase)*0.25);
+    ctx.fillStyle = `rgba(26,26,26,${a})`;
+    ctx.fill();
+  });
+
+  requestAnimationFrame(loop);
+}
+
+window.addEventListener('resize', resize);
+resize();        /* 1. 先算出 W/H */
+initParticles(); /* 2. 再用有效的 W/H 初始化 520 个粒子 */
+seedCluster();   /* 3. 给它们第一波 target */
+loop();          /* 4. 启动渲染循环 */
+
+/* ============ 搜索流程: scatter → gather to flower → show text ============ */
+const textEl = document.getElementById('text');
+const hintMsg = document.getElementById('hintMsg');
+let pendingTimers = [];
+
+function clearPending(){ pendingTimers.forEach(clearTimeout); pendingTimers = []; }
+
+function showFlower(flower){
+  clearPending();
+  hintMsg.classList.add('hidden');
+  textEl.classList.remove('on');
+  /* 下滑: 让 search 输入框 + hints 都留在视口, 这样用户既能点 pill 换下一朵, 也能改输入;
+     若当前已滚得比目标更低, 就保持, 避免每点一次都往回跳 */
+  pendingTimers.push(setTimeout(() => {
+    const search = document.querySelector('.search');
+    const y = search.getBoundingClientRect().top + window.scrollY - 12;
+    if(window.scrollY < y - 4) window.scrollTo({ top: y, behavior: 'smooth' });
+  }, 120));
+  /* 直接从当前位置 (无论 cluster 还是其它花) 错峰流到新花的目标点,
+     软弹簧 + 微扰动让过程自然像烟散再凝, 不再有硬 "散/聚" 切换. */
+  mode = 'flower';
+  currentFlowerId = flower.id;
+  seedFlower(flower.id);
+  /* 粒子大致聚好后, 文字淡入 (经验上 1800ms 足够) */
+  pendingTimers.push(setTimeout(() => {
+    textEl.innerHTML = `
+      <div class="zh">${flower.zh.split('').map((c,j,a) => j===a.length-1?`<em>${c}</em>`:c).join('')}</div>
+      <div class="en">${flower.en}</div>
+      <div class="meaning">${flower.meaning}</div>
+      <div class="canon">${flower.canon}</div>
+      <div class="num">no. ${String(FLOWERS.indexOf(flower)+1).padStart(2,'0')} / ${String(FLOWERS.length).padStart(2,'0')}</div>
+    `;
+    textEl.classList.add('on');
+  }, 1800));
+}
+
+function backToCluster(){
+  clearPending();
+  textEl.classList.remove('on');
+  hintMsg.classList.remove('hidden');
+  mode = 'cluster';
+  currentFlowerId = null;
+  seedCluster();
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+/* 事件 */
+const input = document.getElementById('q');
+let inputTimer = null;
+input.addEventListener('input', () => {
+  clearTimeout(inputTimer);
+  const v = input.value.trim();
+  if(v === ''){ backToCluster(); return; }
+  /* 防抖 200ms, 避免每敲一个字都重画 */
+  inputTimer = setTimeout(() => {
+    const flower = search(v);
+    if(flower) showFlower(flower);
+    else backToCluster();
+  }, 220);
+});
+
+document.querySelectorAll('.hints button').forEach(btn => {
+  btn.addEventListener('click', () => {
+    input.value = btn.dataset.q;
+    const flower = search(btn.dataset.q);
+    if(flower) showFlower(flower);
+    input.focus();
+  });
+});
+</script>
+
+</body>
+</html>

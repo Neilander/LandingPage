@@ -1,0 +1,249 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>flowers · round 5 preview</title>
+<style>
+:root{
+  --paper:#f8f4ed; --ink:#2a2520; --ink-dim:#7a6f5f;
+  --brick:#c64a2a; --moss:#4a6b3a; --brass:#d4a74a;
+  --plum:#6a3a5d; --lavender:#a38bc4; --peach:#e89a7a;
+}
+@import url('https://fonts.googleapis.com/css2?family=Fraunces:ital,wght@0,400;1,400;1,600&family=JetBrains+Mono:wght@400&display=swap');
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--paper);color:var(--ink);font-family:'Fraunces',serif;padding:48px;min-height:100vh}
+h1{font-size:24px;font-style:italic;font-weight:400;margin-bottom:8px}
+.sub{font-family:'JetBrains Mono',monospace;font-size:11px;letter-spacing:0.2em;text-transform:uppercase;color:var(--ink-dim);margin-bottom:32px}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:32px}
+.card{background:var(--paper);border:1px solid rgba(42,37,32,0.15);border-radius:14px;padding:24px;display:flex;flex-direction:column;align-items:center;gap:14px}
+.card svg.show{width:120px;height:140px;display:block}
+.card .name{font-size:16px;font-weight:600;font-style:italic}
+.card .id{font-family:'JetBrains Mono',monospace;font-size:9px;letter-spacing:0.22em;text-transform:uppercase;color:var(--ink-dim)}
+</style>
+</head>
+<body>
+<h1>flowers · round 5</h1>
+<div class="sub">5 illustrations · iris / camellia / cherry-blossom / dandelion / pansy</div>
+
+<svg width="0" height="0" style="position:absolute"
+     stroke="var(--ink)" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round" fill="none">
+<defs>
+
+  <!-- ============== 10. 鸢尾 (6 瓣: 3 立 3 垂) ============== -->
+  <symbol id="fl-iris" viewBox="0 0 120 140">
+    <!-- 剑形叶 (左) -->
+    <path d="M 42 135 L 44 60 L 48 135 Z" fill="var(--moss)"/>
+    <!-- 茎 -->
+    <path d="M 60 65 L 60 135"/>
+    <!-- 垂瓣 前中 -->
+    <path d="M 60 65 C 50 68, 46 85, 60 90 C 74 85, 70 68, 60 65 Z" fill="var(--plum)"/>
+    <!-- 垂瓣 左 -->
+    <path d="M 50 55 C 36 58, 26 75, 38 85 C 48 84, 54 75, 56 65 Z" fill="var(--plum)" opacity="0.82"/>
+    <!-- 垂瓣 右 -->
+    <path d="M 70 55 C 84 58, 94 75, 82 85 C 72 84, 66 75, 64 65 Z" fill="var(--plum)" opacity="0.82"/>
+    <!-- 立瓣 中 -->
+    <path d="M 60 52 C 52 40, 50 18, 60 14 C 70 18, 68 40, 60 52 Z" fill="var(--plum)" opacity="0.92"/>
+    <!-- 立瓣 左 -->
+    <path d="M 54 52 C 42 44, 36 24, 46 18 C 50 26, 54 42, 56 52" fill="var(--plum)" opacity="0.72"/>
+    <!-- 立瓣 右 -->
+    <path d="M 66 52 C 78 44, 84 24, 74 18 C 70 26, 66 42, 64 52" fill="var(--plum)" opacity="0.72"/>
+    <!-- 前垂瓣上的黄胡须 (iris 标志性) -->
+    <path d="M 60 70 L 60 84" stroke="var(--brass)" stroke-width="3"/>
+  </symbol>
+
+  <!-- ============== 11. 山茶 (圆润多瓣) ============== -->
+  <symbol id="fl-camellia" viewBox="0 0 120 140">
+    <!-- 茎 -->
+    <path d="M 60 82 L 60 135"/>
+    <!-- 光泽大叶 (左) -->
+    <path d="M 60 108 C 40 102, 24 112, 28 124 C 40 128, 58 118, 60 112 Z" fill="var(--moss)"/>
+    <path d="M 32 118 C 44 114, 54 116, 58 120" stroke-width="0.6"/>
+    <!-- 叶 (右) -->
+    <path d="M 60 120 C 78 116, 90 124, 88 134" fill="none"/>
+    <!-- 外层 5 圆润花瓣 -->
+    <g fill="var(--peach)">
+      <ellipse cx="60" cy="30" rx="14" ry="18"/>
+      <ellipse cx="60" cy="30" rx="14" ry="18" transform="rotate(72 60 52)"/>
+      <ellipse cx="60" cy="30" rx="14" ry="18" transform="rotate(144 60 52)"/>
+      <ellipse cx="60" cy="30" rx="14" ry="18" transform="rotate(216 60 52)"/>
+      <ellipse cx="60" cy="30" rx="14" ry="18" transform="rotate(288 60 52)"/>
+    </g>
+    <!-- 内层 5 小瓣 (错位 36°) -->
+    <g fill="var(--peach)" opacity="0.82">
+      <ellipse cx="60" cy="40" rx="7" ry="11" transform="rotate(36 60 52)"/>
+      <ellipse cx="60" cy="40" rx="7" ry="11" transform="rotate(108 60 52)"/>
+      <ellipse cx="60" cy="40" rx="7" ry="11" transform="rotate(180 60 52)"/>
+      <ellipse cx="60" cy="40" rx="7" ry="11" transform="rotate(252 60 52)"/>
+      <ellipse cx="60" cy="40" rx="7" ry="11" transform="rotate(324 60 52)"/>
+    </g>
+    <!-- 花蕊 (黄色) -->
+    <circle cx="60" cy="52" r="5" fill="var(--brass)"/>
+    <g stroke="var(--brass)" stroke-width="0.7">
+      <line x1="60" y1="52" x2="56" y2="45"/>
+      <line x1="60" y1="52" x2="64" y2="45"/>
+      <line x1="60" y1="52" x2="55" y2="49"/>
+      <line x1="60" y1="52" x2="65" y2="49"/>
+    </g>
+  </symbol>
+
+  <!-- ============== 12. 樱花 (枝上 3 朵) ============== -->
+  <symbol id="fl-cherry-blossom" viewBox="0 0 120 140">
+    <!-- 主枝 (细暗) -->
+    <path d="M 10 110 C 30 95, 55 75, 108 32" stroke-width="1.5"/>
+    <!-- 分支 (向下岔) -->
+    <path d="M 45 85 C 50 95, 55 108, 60 120" stroke-width="1"/>
+    <path d="M 80 60 C 76 72, 72 85, 68 100" stroke-width="1"/>
+
+    <!-- 樱花 1 (右上,最大) -->
+    <g transform="translate(100 38)">
+      <g fill="var(--peach)">
+        <path d="M 0 0 C -5 -3, -10 -9, -6 -13 C -3 -15, 0 -15, 0 -13 C 0 -15, 3 -15, 6 -13 C 10 -9, 5 -3, 0 0 Z"/>
+        <path d="M 0 0 C -5 -3, -10 -9, -6 -13 C -3 -15, 0 -15, 0 -13 C 0 -15, 3 -15, 6 -13 C 10 -9, 5 -3, 0 0 Z" transform="rotate(72)"/>
+        <path d="M 0 0 C -5 -3, -10 -9, -6 -13 C -3 -15, 0 -15, 0 -13 C 0 -15, 3 -15, 6 -13 C 10 -9, 5 -3, 0 0 Z" transform="rotate(144)"/>
+        <path d="M 0 0 C -5 -3, -10 -9, -6 -13 C -3 -15, 0 -15, 0 -13 C 0 -15, 3 -15, 6 -13 C 10 -9, 5 -3, 0 0 Z" transform="rotate(216)"/>
+        <path d="M 0 0 C -5 -3, -10 -9, -6 -13 C -3 -15, 0 -15, 0 -13 C 0 -15, 3 -15, 6 -13 C 10 -9, 5 -3, 0 0 Z" transform="rotate(288)"/>
+      </g>
+      <circle r="2.5" fill="var(--brick)"/>
+    </g>
+    <!-- 樱花 2 (中部) -->
+    <g transform="translate(62 68) scale(0.75)">
+      <g fill="var(--peach)">
+        <path d="M 0 0 C -5 -3, -10 -9, -6 -13 C -3 -15, 0 -15, 0 -13 C 0 -15, 3 -15, 6 -13 C 10 -9, 5 -3, 0 0 Z"/>
+        <path d="M 0 0 C -5 -3, -10 -9, -6 -13 C -3 -15, 0 -15, 0 -13 C 0 -15, 3 -15, 6 -13 C 10 -9, 5 -3, 0 0 Z" transform="rotate(72)"/>
+        <path d="M 0 0 C -5 -3, -10 -9, -6 -13 C -3 -15, 0 -15, 0 -13 C 0 -15, 3 -15, 6 -13 C 10 -9, 5 -3, 0 0 Z" transform="rotate(144)"/>
+        <path d="M 0 0 C -5 -3, -10 -9, -6 -13 C -3 -15, 0 -15, 0 -13 C 0 -15, 3 -15, 6 -13 C 10 -9, 5 -3, 0 0 Z" transform="rotate(216)"/>
+        <path d="M 0 0 C -5 -3, -10 -9, -6 -13 C -3 -15, 0 -15, 0 -13 C 0 -15, 3 -15, 6 -13 C 10 -9, 5 -3, 0 0 Z" transform="rotate(288)"/>
+      </g>
+      <circle r="2.5" fill="var(--brick)"/>
+    </g>
+    <!-- 樱花 3 (左下,最小,半开) -->
+    <g transform="translate(45 100) scale(0.55)">
+      <g fill="var(--peach)">
+        <path d="M 0 0 C -5 -3, -10 -9, -6 -13 C -3 -15, 0 -15, 0 -13 C 0 -15, 3 -15, 6 -13 C 10 -9, 5 -3, 0 0 Z"/>
+        <path d="M 0 0 C -5 -3, -10 -9, -6 -13 C -3 -15, 0 -15, 0 -13 C 0 -15, 3 -15, 6 -13 C 10 -9, 5 -3, 0 0 Z" transform="rotate(72)"/>
+        <path d="M 0 0 C -5 -3, -10 -9, -6 -13 C -3 -15, 0 -15, 0 -13 C 0 -15, 3 -15, 6 -13 C 10 -9, 5 -3, 0 0 Z" transform="rotate(144)"/>
+        <path d="M 0 0 C -5 -3, -10 -9, -6 -13 C -3 -15, 0 -15, 0 -13 C 0 -15, 3 -15, 6 -13 C 10 -9, 5 -3, 0 0 Z" transform="rotate(216)"/>
+        <path d="M 0 0 C -5 -3, -10 -9, -6 -13 C -3 -15, 0 -15, 0 -13 C 0 -15, 3 -15, 6 -13 C 10 -9, 5 -3, 0 0 Z" transform="rotate(288)"/>
+      </g>
+      <circle r="2.5" fill="var(--brick)"/>
+    </g>
+    <!-- 花苞 (未开,小椭圆) -->
+    <ellipse cx="90" cy="50" rx="2.5" ry="4" fill="var(--peach)" transform="rotate(-20 90 50)"/>
+  </symbol>
+
+  <!-- ============== 13. 蒲公英 (绒球 + 飘籽) ============== -->
+  <symbol id="fl-dandelion" viewBox="0 0 120 140">
+    <!-- 茎 -->
+    <path d="M 60 78 L 60 135"/>
+    <!-- 锯齿叶 -->
+    <path d="M 60 115 L 50 110 L 44 116 L 36 112 L 30 118 L 34 126 L 58 122 Z" fill="var(--moss)"/>
+    <!-- 绒球: 24 条射线 (每 15°) + 黄色中心 -->
+    <g stroke-width="0.8">
+      <line x1="60" y1="50" x2="60" y2="22"/>
+      <line x1="60" y1="50" x2="60" y2="22" transform="rotate(15 60 50)"/>
+      <line x1="60" y1="50" x2="60" y2="22" transform="rotate(30 60 50)"/>
+      <line x1="60" y1="50" x2="60" y2="22" transform="rotate(45 60 50)"/>
+      <line x1="60" y1="50" x2="60" y2="22" transform="rotate(60 60 50)"/>
+      <line x1="60" y1="50" x2="60" y2="22" transform="rotate(75 60 50)"/>
+      <line x1="60" y1="50" x2="60" y2="22" transform="rotate(90 60 50)"/>
+      <line x1="60" y1="50" x2="60" y2="22" transform="rotate(105 60 50)"/>
+      <line x1="60" y1="50" x2="60" y2="22" transform="rotate(120 60 50)"/>
+      <line x1="60" y1="50" x2="60" y2="22" transform="rotate(135 60 50)"/>
+      <line x1="60" y1="50" x2="60" y2="22" transform="rotate(150 60 50)"/>
+      <line x1="60" y1="50" x2="60" y2="22" transform="rotate(165 60 50)"/>
+      <line x1="60" y1="50" x2="60" y2="22" transform="rotate(180 60 50)"/>
+      <line x1="60" y1="50" x2="60" y2="22" transform="rotate(195 60 50)"/>
+      <line x1="60" y1="50" x2="60" y2="22" transform="rotate(210 60 50)"/>
+      <line x1="60" y1="50" x2="60" y2="22" transform="rotate(225 60 50)"/>
+      <line x1="60" y1="50" x2="60" y2="22" transform="rotate(240 60 50)"/>
+      <line x1="60" y1="50" x2="60" y2="22" transform="rotate(255 60 50)"/>
+      <line x1="60" y1="50" x2="60" y2="22" transform="rotate(270 60 50)"/>
+      <line x1="60" y1="50" x2="60" y2="22" transform="rotate(285 60 50)"/>
+      <line x1="60" y1="50" x2="60" y2="22" transform="rotate(300 60 50)"/>
+      <line x1="60" y1="50" x2="60" y2="22" transform="rotate(315 60 50)"/>
+      <line x1="60" y1="50" x2="60" y2="22" transform="rotate(330 60 50)"/>
+      <line x1="60" y1="50" x2="60" y2="22" transform="rotate(345 60 50)"/>
+    </g>
+    <!-- 中心 -->
+    <circle cx="60" cy="50" r="3" fill="var(--brass)"/>
+    <!-- 飘走的种子 (小星形 ×) -->
+    <g stroke-width="0.7">
+      <g transform="translate(92 28)">
+        <line x1="-4" y1="0" x2="4" y2="0"/>
+        <line x1="0" y1="-4" x2="0" y2="4"/>
+        <line x1="-3" y1="-3" x2="3" y2="3"/>
+        <line x1="-3" y1="3" x2="3" y2="-3"/>
+      </g>
+      <g transform="translate(18 20)">
+        <line x1="-3" y1="0" x2="3" y2="0"/>
+        <line x1="0" y1="-3" x2="0" y2="3"/>
+        <line x1="-2" y1="-2" x2="2" y2="2"/>
+      </g>
+      <g transform="translate(100 65)">
+        <line x1="-2.5" y1="0" x2="2.5" y2="0"/>
+        <line x1="0" y1="-2.5" x2="0" y2="2.5"/>
+      </g>
+    </g>
+  </symbol>
+
+  <!-- ============== 14. 三色堇 (5 瓣多色) ============== -->
+  <symbol id="fl-pansy" viewBox="0 0 120 140">
+    <!-- 茎 -->
+    <path d="M 60 118 L 60 135"/>
+    <!-- 叶 -->
+    <path d="M 60 125 C 48 123, 40 130, 44 136" fill="none"/>
+    <!-- 上左瓣 (plum) -->
+    <path d="M 60 62 C 48 44, 30 44, 32 60 C 38 70, 52 68, 60 62 Z" fill="var(--plum)"/>
+    <!-- 上右瓣 (plum) -->
+    <path d="M 60 62 C 72 44, 90 44, 88 60 C 82 70, 68 68, 60 62 Z" fill="var(--plum)"/>
+    <!-- 左侧瓣 (peach) -->
+    <path d="M 60 62 C 42 64, 26 76, 32 88 C 42 94, 56 84, 60 74 Z" fill="var(--peach)"/>
+    <!-- 右侧瓣 (peach) -->
+    <path d="M 60 62 C 78 64, 94 76, 88 88 C 78 94, 64 84, 60 74 Z" fill="var(--peach)"/>
+    <!-- 下瓣 (peach,最大,带紫条纹) -->
+    <path d="M 60 62 C 42 72, 40 108, 60 112 C 80 108, 78 72, 60 62 Z" fill="var(--peach)"/>
+    <!-- 紫色条纹 5 条 -->
+    <g stroke="var(--plum)" stroke-width="0.8">
+      <path d="M 60 66 L 50 88"/>
+      <path d="M 60 66 L 55 94"/>
+      <path d="M 60 66 L 60 100"/>
+      <path d="M 60 66 L 65 94"/>
+      <path d="M 60 66 L 70 88"/>
+    </g>
+    <!-- 黄色喉部 -->
+    <circle cx="60" cy="66" r="5" fill="var(--brass)"/>
+  </symbol>
+
+</defs>
+</svg>
+
+<div class="grid">
+  <div class="card">
+    <svg class="show" viewBox="0 0 120 140" stroke="var(--ink)" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round" fill="none"><use href="#fl-iris"/></svg>
+    <div class="name">Iris · 鸢尾</div>
+    <div class="id">fl-iris</div>
+  </div>
+  <div class="card">
+    <svg class="show" viewBox="0 0 120 140" stroke="var(--ink)" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round" fill="none"><use href="#fl-camellia"/></svg>
+    <div class="name">Camellia · 山茶</div>
+    <div class="id">fl-camellia</div>
+  </div>
+  <div class="card">
+    <svg class="show" viewBox="0 0 120 140" stroke="var(--ink)" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round" fill="none"><use href="#fl-cherry-blossom"/></svg>
+    <div class="name">Cherry Blossom · 樱花</div>
+    <div class="id">fl-cherry-blossom</div>
+  </div>
+  <div class="card">
+    <svg class="show" viewBox="0 0 120 140" stroke="var(--ink)" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round" fill="none"><use href="#fl-dandelion"/></svg>
+    <div class="name">Dandelion · 蒲公英</div>
+    <div class="id">fl-dandelion</div>
+  </div>
+  <div class="card">
+    <svg class="show" viewBox="0 0 120 140" stroke="var(--ink)" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round" fill="none"><use href="#fl-pansy"/></svg>
+    <div class="name">Pansy · 三色堇</div>
+    <div class="id">fl-pansy</div>
+  </div>
+</div>
+
+</body>
+</html>

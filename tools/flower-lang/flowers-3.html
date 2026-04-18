@@ -1,0 +1,246 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>flowers · round 3 preview</title>
+<style>
+:root{
+  --paper:#f8f4ed; --ink:#2a2520; --ink-dim:#7a6f5f;
+  --brick:#c64a2a; --moss:#4a6b3a; --brass:#d4a74a;
+  --plum:#6a3a5d; --lavender:#a38bc4; --peach:#e89a7a;
+}
+@import url('https://fonts.googleapis.com/css2?family=Fraunces:ital,wght@0,400;1,400;1,600&family=JetBrains+Mono:wght@400&display=swap');
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--paper);color:var(--ink);font-family:'Fraunces',serif;padding:48px;min-height:100vh}
+h1{font-size:24px;font-style:italic;font-weight:400;margin-bottom:8px}
+.sub{font-family:'JetBrains Mono',monospace;font-size:11px;letter-spacing:0.2em;text-transform:uppercase;color:var(--ink-dim);margin-bottom:32px}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:32px}
+.card{background:var(--paper);border:1px solid rgba(42,37,32,0.15);border-radius:14px;padding:24px;display:flex;flex-direction:column;align-items:center;gap:14px}
+.card svg.show{width:120px;height:140px;display:block}
+.card .name{font-size:16px;font-weight:600;font-style:italic}
+.card .id{font-family:'JetBrains Mono',monospace;font-size:9px;letter-spacing:0.22em;text-transform:uppercase;color:var(--ink-dim)}
+</style>
+</head>
+<body>
+<h1>flowers · round 3</h1>
+<div class="sub">5 illustrations · line + flat fill · 120×140</div>
+
+<!-- 主 SVG: 所有 symbol 定义 + 全局描边样式 (子元素继承) -->
+<svg width="0" height="0" style="position:absolute"
+     stroke="var(--ink)" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round" fill="none">
+<defs>
+
+  <!-- ============== 1. 红玫瑰 (侧视半开) ============== -->
+  <symbol id="fl-rose-red" viewBox="0 0 120 140">
+    <!-- 茎 -->
+    <path d="M 60 75 C 58 95, 64 115, 60 135"/>
+    <!-- 左叶 (有脉) -->
+    <path d="M 60 105 C 44 100, 28 108, 30 118 C 42 122, 58 116, 60 110 Z" fill="var(--moss)"/>
+    <path d="M 60 105 C 46 108, 34 114, 32 118" stroke-width="0.7"/>
+    <!-- 右叶 -->
+    <path d="M 60 118 C 78 112, 92 120, 90 130 C 82 132, 66 126, 60 120 Z" fill="var(--moss)"/>
+    <!-- 花萼 (小绿托) -->
+    <path d="M 52 72 C 50 78, 58 80, 60 75 C 62 80, 70 78, 68 72" fill="var(--moss)"/>
+    <!-- 玫瑰外轮廓 (半开花头,正视偏侧) -->
+    <path d="M 32 50 C 26 30, 44 18, 60 18 C 76 18, 94 30, 88 50 C 92 65, 78 75, 60 75 C 42 75, 28 65, 32 50 Z"
+          fill="var(--brick)"/>
+    <!-- 内部一层瓣 -->
+    <path d="M 42 45 C 42 32, 52 26, 60 28"/>
+    <path d="M 78 45 C 78 32, 68 26, 60 28"/>
+    <!-- 再内部螺旋 (花心卷) -->
+    <path d="M 50 50 C 48 42, 58 38, 62 44 C 64 50, 58 55, 54 53"/>
+    <path d="M 54 53 C 58 56, 66 55, 68 50"/>
+    <!-- 中心最紧的一瓣 -->
+    <path d="M 57 48 C 57 44, 62 44, 62 48 C 62 52, 58 52, 57 50"/>
+  </symbol>
+
+  <!-- ============== 2. 白紫罗兰 (正视 5 瓣) ============== -->
+  <symbol id="fl-violet-white" viewBox="0 0 120 140">
+    <!-- 叶子 (在底部,心形) -->
+    <path d="M 60 118 C 46 114, 38 122, 42 130 C 50 134, 62 128, 60 124 Z" fill="var(--moss)"/>
+    <!-- 茎 -->
+    <path d="M 60 118 C 60 125, 60 130, 60 136"/>
+    <!-- 花朵(中心 60,62): 5 瓣围绕 -->
+    <!-- 上左瓣 -->
+    <path d="M 60 62 C 48 45, 30 44, 32 58 C 36 68, 50 66, 60 62 Z" fill="var(--lavender)" opacity="0.5"/>
+    <!-- 上右瓣 -->
+    <path d="M 60 62 C 72 45, 90 44, 88 58 C 84 68, 70 66, 60 62 Z" fill="var(--lavender)" opacity="0.5"/>
+    <!-- 左侧瓣 -->
+    <path d="M 60 62 C 42 64, 26 74, 32 86 C 42 92, 58 82, 60 72 Z" fill="var(--lavender)" opacity="0.4"/>
+    <!-- 右侧瓣 -->
+    <path d="M 60 62 C 78 64, 94 74, 88 86 C 78 92, 62 82, 60 72 Z" fill="var(--lavender)" opacity="0.4"/>
+    <!-- 下瓣 (最大,带脉) -->
+    <path d="M 60 62 C 44 72, 40 105, 60 108 C 80 105, 76 72, 60 62 Z" fill="var(--lavender)" opacity="0.55"/>
+    <!-- 下瓣紫色脉 3 条 -->
+    <g stroke="var(--plum)" stroke-width="0.8">
+      <path d="M 60 66 L 55 92"/>
+      <path d="M 60 66 L 60 96"/>
+      <path d="M 60 66 L 65 92"/>
+    </g>
+    <!-- 喉部 (黄) -->
+    <circle cx="60" cy="64" r="4" fill="var(--brass)" stroke="none"/>
+    <circle cx="60" cy="64" r="4"/>
+  </symbol>
+
+  <!-- ============== 3. 铃兰 (弧形茎 + 挂垂铃花) ============== -->
+  <symbol id="fl-lily-of-valley" viewBox="0 0 120 140">
+    <!-- 大叶 (后景,从底部升起,向左弯) -->
+    <path d="M 30 135 C 20 105, 22 55, 32 20 C 38 15, 44 18, 42 28 C 40 58, 38 110, 36 135 Z"
+          fill="var(--moss)" opacity="0.85"/>
+    <!-- 叶中线 -->
+    <path d="M 34 130 C 32 95, 34 50, 38 22" stroke-width="0.6"/>
+    <!-- 弧形花茎 (从叶基向右上弯) -->
+    <path d="M 36 135 C 48 105, 68 65, 95 30"/>
+    <!-- 5 个铃铛花 (从上往下递减大小) -->
+    <g>
+      <!-- Bell 1 top -->
+      <path d="M 92 38 C 88 42, 88 50, 94 52 C 100 52, 102 44, 98 38 Z" fill="var(--paper)"/>
+      <path d="M 88 50 C 90 52, 94 53, 98 52" stroke-width="0.7"/>
+      <!-- Bell 2 -->
+      <path d="M 80 52 C 76 56, 76 64, 82 66 C 88 66, 90 58, 86 52 Z" fill="var(--paper)"/>
+      <path d="M 76 64 C 78 66, 82 67, 86 66" stroke-width="0.7"/>
+      <!-- Bell 3 -->
+      <path d="M 68 66 C 64 70, 64 78, 70 80 C 76 80, 78 72, 74 66 Z" fill="var(--paper)"/>
+      <path d="M 64 78 C 66 80, 70 81, 74 80" stroke-width="0.7"/>
+      <!-- Bell 4 -->
+      <path d="M 58 82 C 54 86, 54 94, 60 96 C 66 96, 68 88, 64 82 Z" fill="var(--paper)"/>
+      <path d="M 54 94 C 56 96, 60 97, 64 96" stroke-width="0.7"/>
+      <!-- Bell 5 bottom -->
+      <path d="M 48 100 C 44 104, 44 112, 50 114 C 56 114, 58 106, 54 100 Z" fill="var(--paper)"/>
+      <path d="M 44 112 C 46 114, 50 115, 54 114" stroke-width="0.7"/>
+    </g>
+    <!-- 每朵花到茎的连接小枝 -->
+    <g stroke-width="0.7">
+      <path d="M 93 38 L 95 30"/>
+      <path d="M 81 52 L 86 47"/>
+      <path d="M 69 66 L 75 60"/>
+      <path d="M 59 82 L 64 77"/>
+      <path d="M 49 100 L 54 95"/>
+    </g>
+  </symbol>
+
+  <!-- ============== 4. 向日葵 (正视) ============== -->
+  <symbol id="fl-sunflower" viewBox="0 0 120 140">
+    <!-- 茎 -->
+    <path d="M 60 88 L 60 135"/>
+    <!-- 左叶 -->
+    <path d="M 60 110 C 42 104, 26 114, 30 126 C 44 130, 58 120, 60 116 Z" fill="var(--moss)"/>
+    <path d="M 60 110 C 46 114, 36 120, 32 124" stroke-width="0.6"/>
+    <!-- 右叶 -->
+    <path d="M 60 120 C 78 116, 92 124, 88 134" fill="none"/>
+    <!-- 花瓣 (12 片围绕中心 60,55) -->
+    <g fill="var(--brass)">
+      <ellipse cx="60" cy="29" rx="6" ry="12"/>
+      <ellipse cx="60" cy="29" rx="6" ry="12" transform="rotate(30 60 55)"/>
+      <ellipse cx="60" cy="29" rx="6" ry="12" transform="rotate(60 60 55)"/>
+      <ellipse cx="60" cy="29" rx="6" ry="12" transform="rotate(90 60 55)"/>
+      <ellipse cx="60" cy="29" rx="6" ry="12" transform="rotate(120 60 55)"/>
+      <ellipse cx="60" cy="29" rx="6" ry="12" transform="rotate(150 60 55)"/>
+      <ellipse cx="60" cy="29" rx="6" ry="12" transform="rotate(180 60 55)"/>
+      <ellipse cx="60" cy="29" rx="6" ry="12" transform="rotate(210 60 55)"/>
+      <ellipse cx="60" cy="29" rx="6" ry="12" transform="rotate(240 60 55)"/>
+      <ellipse cx="60" cy="29" rx="6" ry="12" transform="rotate(270 60 55)"/>
+      <ellipse cx="60" cy="29" rx="6" ry="12" transform="rotate(300 60 55)"/>
+      <ellipse cx="60" cy="29" rx="6" ry="12" transform="rotate(330 60 55)"/>
+    </g>
+    <!-- 中心盘 (深墨填充) -->
+    <circle cx="60" cy="55" r="14" fill="var(--ink)"/>
+    <!-- 盘上小种子点 -->
+    <g fill="var(--brass)" stroke="none">
+      <circle cx="55" cy="50" r="1.2"/>
+      <circle cx="62" cy="48" r="1.2"/>
+      <circle cx="66" cy="54" r="1.2"/>
+      <circle cx="58" cy="58" r="1.2"/>
+      <circle cx="63" cy="62" r="1.2"/>
+      <circle cx="53" cy="56" r="1"/>
+      <circle cx="68" cy="59" r="1"/>
+    </g>
+  </symbol>
+
+  <!-- ============== 5. 勿忘我 (4 朵小花聚集) ============== -->
+  <symbol id="fl-forget-me-not" viewBox="0 0 120 140">
+    <!-- 茎 -->
+    <path d="M 60 98 C 58 115, 62 128, 60 136"/>
+    <!-- 叶子 -->
+    <path d="M 60 120 C 48 116, 38 122, 42 130 C 52 132, 60 126, 60 122 Z" fill="var(--moss)"/>
+    <!-- 第 2 片叶 (右上,细长) -->
+    <path d="M 62 122 C 72 120, 82 126, 82 132" fill="none"/>
+    <!-- 花 1 中央最大 -->
+    <g transform="translate(60 56)">
+      <g fill="var(--lavender)">
+        <ellipse cx="0" cy="-10" rx="6" ry="8"/>
+        <ellipse cx="0" cy="-10" rx="6" ry="8" transform="rotate(72)"/>
+        <ellipse cx="0" cy="-10" rx="6" ry="8" transform="rotate(144)"/>
+        <ellipse cx="0" cy="-10" rx="6" ry="8" transform="rotate(216)"/>
+        <ellipse cx="0" cy="-10" rx="6" ry="8" transform="rotate(288)"/>
+      </g>
+      <circle r="3" fill="var(--brass)"/>
+    </g>
+    <!-- 花 2 右上 -->
+    <g transform="translate(90 40) scale(0.7)">
+      <g fill="var(--lavender)">
+        <ellipse cx="0" cy="-10" rx="6" ry="8"/>
+        <ellipse cx="0" cy="-10" rx="6" ry="8" transform="rotate(72)"/>
+        <ellipse cx="0" cy="-10" rx="6" ry="8" transform="rotate(144)"/>
+        <ellipse cx="0" cy="-10" rx="6" ry="8" transform="rotate(216)"/>
+        <ellipse cx="0" cy="-10" rx="6" ry="8" transform="rotate(288)"/>
+      </g>
+      <circle r="3" fill="var(--brass)"/>
+    </g>
+    <!-- 花 3 左上 -->
+    <g transform="translate(28 42) scale(0.72)">
+      <g fill="var(--lavender)">
+        <ellipse cx="0" cy="-10" rx="6" ry="8"/>
+        <ellipse cx="0" cy="-10" rx="6" ry="8" transform="rotate(72)"/>
+        <ellipse cx="0" cy="-10" rx="6" ry="8" transform="rotate(144)"/>
+        <ellipse cx="0" cy="-10" rx="6" ry="8" transform="rotate(216)"/>
+        <ellipse cx="0" cy="-10" rx="6" ry="8" transform="rotate(288)"/>
+      </g>
+      <circle r="3" fill="var(--brass)"/>
+    </g>
+    <!-- 花 4 右下 -->
+    <g transform="translate(80 82) scale(0.6)">
+      <g fill="var(--lavender)">
+        <ellipse cx="0" cy="-10" rx="6" ry="8"/>
+        <ellipse cx="0" cy="-10" rx="6" ry="8" transform="rotate(72)"/>
+        <ellipse cx="0" cy="-10" rx="6" ry="8" transform="rotate(144)"/>
+        <ellipse cx="0" cy="-10" rx="6" ry="8" transform="rotate(216)"/>
+        <ellipse cx="0" cy="-10" rx="6" ry="8" transform="rotate(288)"/>
+      </g>
+      <circle r="3" fill="var(--brass)"/>
+    </g>
+  </symbol>
+
+</defs>
+</svg>
+
+<div class="grid">
+  <div class="card">
+    <svg class="show" viewBox="0 0 120 140" stroke="var(--ink)" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round" fill="none"><use href="#fl-rose-red"/></svg>
+    <div class="name">Red Rose · 红玫瑰</div>
+    <div class="id">fl-rose-red</div>
+  </div>
+  <div class="card">
+    <svg class="show" viewBox="0 0 120 140" stroke="var(--ink)" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round" fill="none"><use href="#fl-violet-white"/></svg>
+    <div class="name">White Violet · 白紫罗兰</div>
+    <div class="id">fl-violet-white</div>
+  </div>
+  <div class="card">
+    <svg class="show" viewBox="0 0 120 140" stroke="var(--ink)" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round" fill="none"><use href="#fl-lily-of-valley"/></svg>
+    <div class="name">Lily of the Valley · 铃兰</div>
+    <div class="id">fl-lily-of-valley</div>
+  </div>
+  <div class="card">
+    <svg class="show" viewBox="0 0 120 140" stroke="var(--ink)" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round" fill="none"><use href="#fl-sunflower"/></svg>
+    <div class="name">Sunflower · 向日葵</div>
+    <div class="id">fl-sunflower</div>
+  </div>
+  <div class="card">
+    <svg class="show" viewBox="0 0 120 140" stroke="var(--ink)" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round" fill="none"><use href="#fl-forget-me-not"/></svg>
+    <div class="name">Forget-Me-Not · 勿忘我</div>
+    <div class="id">fl-forget-me-not</div>
+  </div>
+</div>
+
+</body>
+</html>

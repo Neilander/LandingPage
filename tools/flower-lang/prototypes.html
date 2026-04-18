@@ -1,0 +1,810 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>Flower Language · Style Prototypes</title>
+<!--
+  3 条风格原型对比,每条是一整页设计(不是单独的花),方便挑:
+  A · One-Line (单笔画极简)
+  B · Bauhaus (几何抽象)
+  C · Perfect-Freehand (真笔触手绘)
+-->
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<script type="module">
+  import { getStroke } from 'https://cdn.skypack.dev/perfect-freehand@1.2.0';
+  window.__getStroke = getStroke;
+</script>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300..900;1,9..144,300..900&family=Inter:wght@300..700&family=Space+Mono:wght@400;700&family=Archivo+Black&family=Caveat:wght@400..700&display=swap');
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{background:#f0ebe0;font-family:'Inter',sans-serif;color:#222}
+body{padding:48px 0 120px}
+.head{text-align:center;padding:0 40px 60px}
+.head h1{font-family:'Fraunces',serif;font-style:italic;font-weight:300;font-size:40px}
+.head p{font-family:'Space Mono',monospace;font-size:11px;letter-spacing:0.3em;text-transform:uppercase;color:#888;margin-top:8px}
+
+.label{
+  text-align:center;padding:18px 40px 8px;
+  font-family:'Space Mono',monospace;font-size:11px;letter-spacing:0.4em;text-transform:uppercase;color:#555;
+}
+.label b{color:#c64a2a;font-weight:700;margin-right:8px}
+
+/* ============ A. ONE-LINE ============ */
+.styleA{
+  background:#fdfbf5;max-width:1080px;margin:0 auto 40px;padding:80px 60px 100px;
+  border:1px solid rgba(0,0,0,0.08);border-radius:6px;box-shadow:0 40px 80px -40px rgba(0,0,0,0.12);
+}
+.styleA .h1{font-family:'Fraunces',serif;font-style:italic;font-weight:300;font-size:clamp(40px,6vw,76px);letter-spacing:-0.02em;text-align:center;color:#1a1a1a}
+.styleA .h1 em{font-style:italic;color:#7a6a4a;font-weight:500}
+.styleA .tag{text-align:center;font-family:'Fraunces',serif;font-style:italic;color:#777;font-size:16px;margin-top:12px}
+.styleA .search{max-width:560px;margin:48px auto 40px;text-align:center}
+.styleA .search input{
+  width:100%;padding:14px 20px;border:none;border-bottom:1.5px solid #1a1a1a;background:transparent;
+  font-family:'Fraunces',serif;font-style:italic;font-size:28px;text-align:center;outline:none;color:#1a1a1a;
+}
+.styleA .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:40px;margin-top:60px;padding-top:40px;border-top:1px solid rgba(0,0,0,0.1)}
+.styleA .card{text-align:center}
+.styleA .card svg{width:140px;height:160px;margin:0 auto;display:block}
+.styleA .card .zh{font-family:'Fraunces',serif;font-style:italic;font-weight:500;font-size:22px;margin-top:14px}
+.styleA .card .meaning{font-family:'Fraunces',serif;font-style:italic;color:#888;font-size:14px;margin-top:4px}
+.styleA .card .num{font-family:'Space Mono',monospace;font-size:9px;letter-spacing:0.3em;color:#aaa;margin-top:8px}
+
+/* ============ B. BAUHAUS ============ */
+.styleB{
+  background:#edeadf;max-width:1080px;margin:0 auto 40px;padding:0;
+  border-radius:6px;overflow:hidden;
+}
+.styleB .top{
+  background:#1a1a1a;color:#edeadf;padding:48px 60px;
+  display:grid;grid-template-columns:1fr auto;gap:24px;align-items:end;
+}
+.styleB .top h1{font-family:'Archivo Black',sans-serif;font-size:clamp(42px,7vw,92px);letter-spacing:-0.03em;line-height:0.9;text-transform:uppercase}
+.styleB .top h1 em{font-style:normal;color:#e8c64a;font-family:'Archivo Black',sans-serif}
+.styleB .top .meta{font-family:'Space Mono',monospace;font-size:10px;letter-spacing:0.3em;text-transform:uppercase;color:#b8b4a8;text-align:right;line-height:1.8}
+.styleB .search{padding:40px 60px;background:#e8c64a;display:flex;align-items:center;gap:20px}
+.styleB .search::before{content:"▶";color:#1a1a1a;font-size:20px}
+.styleB .search input{flex:1;padding:14px 0;border:none;background:transparent;font-family:'Archivo Black',sans-serif;font-size:28px;outline:none;color:#1a1a1a;text-transform:uppercase}
+.styleB .search input::placeholder{color:#8a7a22}
+.styleB .grid{padding:60px;display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:40px}
+.styleB .card{background:#fdfbf5;padding:32px 28px;border:1.5px solid #1a1a1a}
+.styleB .card svg{width:140px;height:140px;display:block;margin:0 auto}
+.styleB .card .zh{font-family:'Archivo Black',sans-serif;font-size:22px;text-transform:uppercase;margin-top:20px;letter-spacing:-0.02em}
+.styleB .card .meaning{font-family:'Space Mono',monospace;font-size:10px;letter-spacing:0.2em;text-transform:uppercase;color:#666;margin-top:6px}
+
+/* ============ C. PERFECT-FREEHAND ============ */
+.styleC{
+  background:#f4ede0;max-width:1080px;margin:0 auto 40px;padding:80px 60px;
+  border-radius:6px;background-image:
+    radial-gradient(ellipse 120% 80% at 50% 50%,transparent 30%,rgba(100,70,30,0.06) 100%);
+  position:relative;
+}
+.styleC::before{
+  content:"";position:absolute;inset:0;border-radius:6px;pointer-events:none;
+  background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='220' height='220'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 0.38 0'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>");
+  background-size:220px 220px;opacity:0.4;mix-blend-mode:multiply;
+}
+.styleC>*{position:relative}
+.styleC .h1{font-family:'Caveat',cursive;font-weight:700;font-size:clamp(52px,8vw,96px);text-align:center;color:#2a2014;line-height:1}
+.styleC .h1 em{font-style:normal;color:#a04a2a}
+.styleC .tag{text-align:center;font-family:'Caveat',cursive;color:#6a5a44;font-size:22px;margin-top:8px}
+.styleC .search{max-width:560px;margin:40px auto 48px}
+.styleC .search input{
+  width:100%;padding:16px 24px;border:2px solid #2a2014;border-radius:28px;background:#fdf9ee;color:#2a2014;
+  font-family:'Caveat',cursive;font-size:26px;text-align:center;outline:none;
+  box-shadow:4px 5px 0 #2a2014;
+}
+.styleC .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:36px;margin-top:40px}
+.styleC .card{text-align:center}
+.styleC .card svg{width:160px;height:160px;display:block;margin:0 auto}
+.styleC .card .zh{font-family:'Caveat',cursive;font-weight:700;font-size:30px;color:#2a2014;margin-top:8px}
+.styleC .card .meaning{font-family:'Caveat',cursive;color:#6a5a44;font-size:20px;margin-top:2px}
+
+/* ============ D. 融合: 几何意图 + 手抖剪纸边 ============ */
+.styleD{
+  background:#f2ede0;max-width:1080px;margin:0 auto 40px;padding:72px 60px;border-radius:6px;position:relative;
+}
+.styleD::before{
+  content:"";position:absolute;inset:0;border-radius:6px;pointer-events:none;
+  background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='200' height='200'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 0.35 0'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>");
+  background-size:200px 200px;opacity:0.28;mix-blend-mode:multiply;
+}
+.styleD>*{position:relative}
+.styleD .top{display:grid;grid-template-columns:1fr auto;gap:24px;align-items:end;margin-bottom:28px;padding-bottom:24px;border-bottom:2px solid #1a1512}
+.styleD .top h1{font-family:'Fraunces',serif;font-weight:900;font-size:clamp(46px,7vw,96px);line-height:0.92;letter-spacing:-0.03em;color:#1a1512}
+.styleD .top h1 em{font-style:italic;color:#c64a2a}
+.styleD .top .meta{font-family:'Space Mono',monospace;font-size:10px;letter-spacing:0.3em;text-transform:uppercase;color:#6a5a44;text-align:right;line-height:1.9}
+.styleD .search{max-width:560px;margin:0 auto 48px;display:flex;align-items:baseline;gap:14px;padding:14px 0;border-bottom:2px solid #1a1512}
+.styleD .search .cue{font-family:'Fraunces',serif;font-style:italic;font-size:20px;color:#8a7a5a}
+.styleD .search input{flex:1;border:none;background:transparent;font-family:'Fraunces',serif;font-size:30px;outline:none;color:#1a1512;font-style:italic;font-weight:500}
+.styleD .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:40px}
+.styleD .card{display:flex;flex-direction:column;align-items:center;gap:10px}
+.styleD .card svg{width:160px;height:160px}
+.styleD .card .zh{font-family:'Fraunces',serif;font-weight:700;font-size:22px;font-style:italic}
+.styleD .card .meaning{font-family:'Space Mono',monospace;font-size:10px;letter-spacing:0.24em;text-transform:uppercase;color:#6a5a44}
+
+/* ============ E · 最终方向: 笔触线稿 + 错位情绪色块 ============ */
+.styleE{
+  background:#f4ede0;max-width:1080px;margin:0 auto 40px;padding:80px 60px;border-radius:6px;position:relative;
+}
+.styleE::before{
+  content:"";position:absolute;inset:0;border-radius:6px;pointer-events:none;
+  background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='200' height='200'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 0.35 0'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>");
+  background-size:200px 200px;opacity:0.32;mix-blend-mode:multiply;
+}
+.styleE>*{position:relative}
+.styleE .h1{font-family:'Fraunces',serif;font-weight:300;font-style:italic;font-size:clamp(48px,8vw,92px);text-align:center;color:#1a1512;line-height:1}
+.styleE .h1 em{color:#c64a2a;font-weight:600}
+.styleE .tag{text-align:center;font-family:'Fraunces',serif;font-style:italic;color:#8a7a5a;font-size:18px;margin-top:10px;letter-spacing:0.02em}
+.styleE .search{max-width:520px;margin:40px auto 56px;text-align:center;border-bottom:1.5px solid #1a1512;padding-bottom:10px}
+.styleE .search input{width:100%;border:none;background:transparent;font-family:'Fraunces',serif;font-style:italic;font-size:26px;text-align:center;outline:none;color:#1a1512}
+.styleE .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:44px}
+.styleE .card{display:flex;flex-direction:column;align-items:center;gap:10px}
+.styleE .card .stage{position:relative;width:180px;height:180px}
+.styleE .card svg.ink,.styleE .card svg.blob{position:absolute;inset:0;width:100%;height:100%}
+.styleE .card svg.blob{z-index:0}
+.styleE .card svg.ink{z-index:1}
+.styleE .card .zh{font-family:'Fraunces',serif;font-weight:600;font-style:italic;font-size:22px;color:#1a1512}
+.styleE .card .meaning{font-family:'Space Mono',monospace;font-size:10px;letter-spacing:0.26em;text-transform:uppercase;color:#8a7a5a}
+</style>
+</head>
+<body>
+
+<div class="head">
+  <h1>Flower Language · 风格原型对比</h1>
+  <p>pick one → will scale to all 14 flowers</p>
+</div>
+
+<!-- ============================ A · ONE-LINE ============================ -->
+<div class="label"><b>A</b> one-line · 单笔画极简 · like Lucy Auge / Quibe</div>
+<div class="styleA">
+  <div class="h1">flower <em>language</em></div>
+  <div class="tag">一朵花，一条不断开的线。</div>
+  <div class="search"><input value="思念" readonly></div>
+
+  <div class="grid">
+    <div class="card">
+      <!-- 玫瑰: 螺旋 + 茎 + 叶, 一笔 -->
+      <svg viewBox="0 0 140 160" stroke="#1a1a1a" stroke-width="1.4" fill="none" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M 70 60
+                 C 66 56, 66 64, 70 64
+                 C 74 64, 74 56, 68 54
+                 C 58 52, 56 64, 62 70
+                 C 70 76, 80 64, 72 52
+                 C 62 40, 44 48, 44 64
+                 C 44 82, 72 88, 84 72
+                 C 94 58, 84 38, 66 34
+                 C 46 32, 30 50, 34 70
+                 C 38 96, 72 108, 90 92
+                 L 82 86
+                 M 70 74
+                 C 68 90, 70 108, 72 130
+                 C 72 138, 74 142, 74 148
+                 M 72 110
+                 C 64 108, 52 114, 52 124
+                 C 58 130, 70 122, 72 116"/>
+      </svg>
+      <div class="zh">红玫瑰</div>
+      <div class="meaning">炽热的爱</div>
+      <div class="num">no. 01</div>
+    </div>
+    <div class="card">
+      <!-- 雏菊: 螺旋花心 + 8 瓣(一笔画完各瓣) -->
+      <svg viewBox="0 0 140 160" stroke="#1a1a1a" stroke-width="1.4" fill="none" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M 70 60
+                 C 66 56, 74 54, 76 60
+                 C 76 66, 70 66, 68 62
+                 M 68 48 C 62 36, 64 22, 72 28 C 78 36, 72 50, 68 52
+                 C 86 46, 98 50, 92 62 C 84 70, 72 60, 70 58
+                 C 86 70, 96 82, 84 86 C 74 84, 70 70, 70 62
+                 C 80 84, 74 98, 66 94 C 62 84, 68 70, 70 62
+                 C 58 86, 44 82, 46 72 C 54 64, 68 66, 70 60
+                 C 44 70, 40 58, 48 52 C 56 52, 66 58, 68 58
+                 C 50 46, 54 32, 62 36 C 68 42, 68 54, 68 58
+                 M 70 70
+                 L 70 130
+                 C 66 138, 62 144, 70 150
+                 M 70 120
+                 C 58 122, 50 132, 54 140"/>
+      </svg>
+      <div class="zh">雏菊</div>
+      <div class="meaning">藏在最简单里的希望</div>
+      <div class="num">no. 09</div>
+    </div>
+    <div class="card">
+      <!-- 郁金香: 杯形三瓣 + 茎 + 叶,一笔近似完成 -->
+      <svg viewBox="0 0 140 160" stroke="#1a1a1a" stroke-width="1.4" fill="none" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M 70 70
+                 C 58 60, 54 32, 70 16
+                 C 86 32, 82 60, 70 70
+                 C 52 66, 42 40, 58 26
+                 C 62 38, 66 54, 70 70
+                 C 88 66, 98 40, 82 26
+                 C 78 38, 74 54, 70 70
+                 L 70 140
+                 C 66 148, 62 152, 66 154
+                 M 70 110
+                 C 84 108, 94 118, 90 128"/>
+      </svg>
+      <div class="zh">红郁金香</div>
+      <div class="meaning">爱的宣言</div>
+      <div class="num">no. 07</div>
+    </div>
+  </div>
+</div>
+
+<!-- ============================ B · BAUHAUS ============================ -->
+<div class="label"><b>B</b> bauhaus · 几何抽象 · 圆·三角·方</div>
+<div class="styleB">
+  <div class="top">
+    <h1>flower <em>/</em><br>language.</h1>
+    <div class="meta">vol. 01<br>spring 2026<br>14 flowers</div>
+  </div>
+  <div class="search"><input value="COURAGE · 勇气" readonly></div>
+
+  <div class="grid">
+    <div class="card">
+      <!-- 玫瑰: 三个偏心同心圆红色 + 绿三角 -->
+      <svg viewBox="0 0 140 140">
+        <circle cx="60" cy="55" r="32" fill="#c64a2a"/>
+        <circle cx="66" cy="52" r="22" fill="#8a2410"/>
+        <circle cx="70" cy="50" r="12" fill="#e8c64a"/>
+        <rect x="68" y="85" width="4" height="50" fill="#4a6b3a"/>
+        <polygon points="72,110 110,116 72,124" fill="#4a6b3a"/>
+      </svg>
+      <div class="zh">rose / 红玫瑰</div>
+      <div class="meaning">01 · love</div>
+    </div>
+    <div class="card">
+      <!-- 向日葵: 黄圆中心 + 8 片橙色三角围绕 + 绿茎 -->
+      <svg viewBox="0 0 140 140">
+        <g transform="translate(70 60)">
+          <polygon points="0,-36 8,-8 -8,-8" fill="#e8a13a"/>
+          <polygon points="0,-36 8,-8 -8,-8" fill="#e8a13a" transform="rotate(45)"/>
+          <polygon points="0,-36 8,-8 -8,-8" fill="#e8a13a" transform="rotate(90)"/>
+          <polygon points="0,-36 8,-8 -8,-8" fill="#e8a13a" transform="rotate(135)"/>
+          <polygon points="0,-36 8,-8 -8,-8" fill="#e8a13a" transform="rotate(180)"/>
+          <polygon points="0,-36 8,-8 -8,-8" fill="#e8a13a" transform="rotate(225)"/>
+          <polygon points="0,-36 8,-8 -8,-8" fill="#e8a13a" transform="rotate(270)"/>
+          <polygon points="0,-36 8,-8 -8,-8" fill="#e8a13a" transform="rotate(315)"/>
+        </g>
+        <circle cx="70" cy="60" r="12" fill="#1a1a1a"/>
+        <rect x="68" y="70" width="4" height="60" fill="#4a6b3a"/>
+      </svg>
+      <div class="zh">sunflower / 向日葵</div>
+      <div class="meaning">04 · loyalty</div>
+    </div>
+    <div class="card">
+      <!-- 郁金香: 三个红三角 + 绿矩形茎 -->
+      <svg viewBox="0 0 140 140">
+        <polygon points="70,20 50,70 90,70" fill="#c64a2a"/>
+        <polygon points="55,30 40,75 72,72" fill="#8a2410"/>
+        <polygon points="85,30 100,75 68,72" fill="#8a2410"/>
+        <rect x="68" y="70" width="4" height="60" fill="#4a6b3a"/>
+        <polygon points="72,110 110,115 72,120" fill="#4a6b3a"/>
+      </svg>
+      <div class="zh">tulip / 郁金香</div>
+      <div class="meaning">07 · declaration</div>
+    </div>
+  </div>
+</div>
+
+<!-- ============================ C · PERFECT-FREEHAND ============================ -->
+<div class="label"><b>C</b> perfect-freehand · 真笔触手绘 · pressure stroke (like excalidraw/tldraw)</div>
+<div class="styleC">
+  <div class="h1">flower <em>language</em></div>
+  <div class="tag">say a word, meet a flower.</div>
+  <div class="search"><input value="远方" readonly></div>
+
+  <div class="grid" id="pfGrid">
+    <div class="card">
+      <svg id="pf-rose" viewBox="0 0 160 160"></svg>
+      <div class="zh">红玫瑰</div>
+      <div class="meaning">炽热的爱</div>
+    </div>
+    <div class="card">
+      <svg id="pf-daisy" viewBox="0 0 160 160"></svg>
+      <div class="zh">雏菊</div>
+      <div class="meaning">简单的希望</div>
+    </div>
+    <div class="card">
+      <svg id="pf-tulip" viewBox="0 0 160 160"></svg>
+      <div class="zh">郁金香</div>
+      <div class="meaning">爱的宣言</div>
+    </div>
+  </div>
+</div>
+
+<!-- ============================ D · 融合 (几何 + 手抖剪纸) ============================ -->
+<div class="label"><b>D</b> 融合 · 几何意图 + 剪纸毛边 · matisse cutout feel</div>
+<div class="styleD">
+  <div class="top">
+    <h1>flower<br><em>language.</em></h1>
+    <div class="meta">no. 001<br>spring 2026<br>14 blooms</div>
+  </div>
+  <div class="search">
+    <span class="cue">say a word →</span>
+    <input value="courage · 勇气" readonly>
+  </div>
+
+  <div class="grid">
+    <div class="card">
+      <!-- 玫瑰: 3 个手抖偏心圆 + 手抖三角叶 -->
+      <svg viewBox="0 0 160 160" stroke="#1a1512" stroke-width="1" stroke-linejoin="round">
+        <!-- 大红圆 (wobbly bezier 近似圆) -->
+        <path d="M 72 20 C 94 18, 118 34, 120 58 C 122 82, 104 104, 80 106 C 56 108, 32 92, 30 68 C 28 44, 50 22, 72 20 Z"
+              fill="#c64a2a"/>
+        <!-- 中暗红圆 (偏右上) -->
+        <path d="M 82 30 C 98 30, 114 42, 114 60 C 114 78, 100 90, 82 90 C 66 88, 56 76, 58 58 C 62 42, 70 32, 82 30 Z"
+              fill="#8a2410"/>
+        <!-- 芥黄小圆 (花心,偏心) -->
+        <path d="M 90 48 C 100 48, 106 58, 104 68 C 100 76, 90 78, 84 72 C 80 66, 80 54, 86 50 C 88 48, 88 48, 90 48 Z"
+              fill="#e8c64a"/>
+        <!-- 绿三角叶 (手抖边) -->
+        <path d="M 76 110 C 76 116, 76 124, 78 140 C 80 144, 82 144, 84 140 C 84 128, 82 118, 80 110 Z"
+              fill="#4a6b3a"/>
+        <path d="M 82 128 C 96 126, 114 130, 128 134 C 118 142, 100 144, 84 142 C 82 140, 80 132, 82 128 Z"
+              fill="#4a6b3a"/>
+      </svg>
+      <div class="zh">红玫瑰</div>
+      <div class="meaning">01 · love</div>
+    </div>
+
+    <div class="card">
+      <!-- 向日葵: 8 手抖三角花瓣 + 手抖中心圆 + 茎 -->
+      <svg viewBox="0 0 160 160" stroke="#1a1512" stroke-width="1" stroke-linejoin="round">
+        <!-- 8 wobbly triangular petals around center (80, 70) -->
+        <g transform="translate(80 70)">
+          <path d="M 0 -46 C 4 -30, 6 -18, 8 -8 C 2 -6, -2 -6, -8 -8 C -6 -22, -4 -32, -2 -44 C 0 -46, 0 -46, 0 -46 Z" fill="#e8a13a"/>
+          <path d="M 0 -46 C 4 -30, 6 -18, 8 -8 C 2 -6, -2 -6, -8 -8 C -6 -22, -4 -32, -2 -44 C 0 -46, 0 -46, 0 -46 Z" fill="#e8a13a" transform="rotate(45)"/>
+          <path d="M 0 -46 C 4 -30, 6 -18, 8 -8 C 2 -6, -2 -6, -8 -8 C -6 -22, -4 -32, -2 -44 C 0 -46, 0 -46, 0 -46 Z" fill="#e8a13a" transform="rotate(90)"/>
+          <path d="M 0 -46 C 4 -30, 6 -18, 8 -8 C 2 -6, -2 -6, -8 -8 C -6 -22, -4 -32, -2 -44 C 0 -46, 0 -46, 0 -46 Z" fill="#e8a13a" transform="rotate(135)"/>
+          <path d="M 0 -46 C 4 -30, 6 -18, 8 -8 C 2 -6, -2 -6, -8 -8 C -6 -22, -4 -32, -2 -44 C 0 -46, 0 -46, 0 -46 Z" fill="#e8a13a" transform="rotate(180)"/>
+          <path d="M 0 -46 C 4 -30, 6 -18, 8 -8 C 2 -6, -2 -6, -8 -8 C -6 -22, -4 -32, -2 -44 C 0 -46, 0 -46, 0 -46 Z" fill="#e8a13a" transform="rotate(225)"/>
+          <path d="M 0 -46 C 4 -30, 6 -18, 8 -8 C 2 -6, -2 -6, -8 -8 C -6 -22, -4 -32, -2 -44 C 0 -46, 0 -46, 0 -46 Z" fill="#e8a13a" transform="rotate(270)"/>
+          <path d="M 0 -46 C 4 -30, 6 -18, 8 -8 C 2 -6, -2 -6, -8 -8 C -6 -22, -4 -32, -2 -44 C 0 -46, 0 -46, 0 -46 Z" fill="#e8a13a" transform="rotate(315)"/>
+        </g>
+        <!-- 手抖黑圆 (中心) -->
+        <path d="M 72 60 C 86 58, 94 66, 94 76 C 92 86, 82 90, 72 88 C 64 84, 64 70, 70 62 Z" fill="#1a1512"/>
+        <!-- 茎 (wobbly rectangle) -->
+        <path d="M 78 96 C 78 110, 80 128, 80 144 C 82 148, 86 148, 84 144 C 84 128, 82 112, 82 96 Z" fill="#4a6b3a"/>
+      </svg>
+      <div class="zh">向日葵</div>
+      <div class="meaning">04 · loyalty</div>
+    </div>
+
+    <div class="card">
+      <!-- 郁金香: 三个手抖三角花瓣 + 手抖绿矩形茎 + 手抖长叶 -->
+      <svg viewBox="0 0 160 160" stroke="#1a1512" stroke-width="1" stroke-linejoin="round">
+        <!-- 中后大瓣 -->
+        <path d="M 80 22 C 88 28, 98 46, 102 68 C 104 76, 92 82, 80 82 C 68 82, 56 78, 58 68 C 62 46, 72 28, 80 22 Z"
+              fill="#c64a2a"/>
+        <!-- 左前瓣 (暗红) -->
+        <path d="M 66 32 C 56 44, 48 60, 48 78 C 48 82, 62 82, 70 80 C 72 66, 70 48, 66 32 Z"
+              fill="#8a2410"/>
+        <!-- 右前瓣 -->
+        <path d="M 94 32 C 104 44, 112 60, 112 78 C 112 82, 98 82, 90 80 C 88 66, 90 48, 94 32 Z"
+              fill="#8a2410"/>
+        <!-- 茎 -->
+        <path d="M 78 84 C 78 108, 80 134, 80 148 C 82 150, 84 150, 84 148 C 84 128, 82 106, 82 84 Z" fill="#4a6b3a"/>
+        <!-- 长叶 -->
+        <path d="M 82 118 C 96 116, 112 122, 120 128 C 116 138, 100 138, 86 136 C 82 130, 82 124, 82 118 Z"
+              fill="#4a6b3a"/>
+      </svg>
+      <div class="zh">红郁金香</div>
+      <div class="meaning">07 · declaration</div>
+    </div>
+  </div>
+</div>
+
+<!-- ============================ E · 最终方向: C 的笔触 + 错位情绪色块 ============================ -->
+<div class="label"><b>E</b> 最终候选 · 真笔触线稿 + 错位情绪色块 (色不描边,不贴线)</div>
+<div class="styleE">
+  <div class="h1">flower <em>language</em></div>
+  <div class="tag">a word, a feeling, a flower.</div>
+  <div class="search"><input value="思念" readonly></div>
+
+  <div class="grid">
+    <div class="card">
+      <div class="stage">
+        <svg class="ink"  viewBox="0 0 180 180" id="e-ink-rose"></svg>
+      </div>
+      <div class="zh">红玫瑰</div>
+      <div class="meaning">love</div>
+    </div>
+    <div class="card">
+      <div class="stage">
+        <svg class="ink"  viewBox="0 0 180 180" id="e-ink-daisy"></svg>
+      </div>
+      <div class="zh">雏菊</div>
+      <div class="meaning">hope</div>
+    </div>
+    <div class="card">
+      <div class="stage">
+        <svg class="ink"  viewBox="0 0 180 180" id="e-ink-tulip"></svg>
+      </div>
+      <div class="zh">红郁金香</div>
+      <div class="meaning">declaration</div>
+    </div>
+  </div>
+</div>
+
+<script type="module">
+import { getStroke } from 'https://cdn.skypack.dev/perfect-freehand@1.2.0';
+
+/* SVG path from stroke polygon */
+function getSvgPathFromStroke(points) {
+  if (!points.length) return '';
+  const d = points.reduce(
+    (acc, [x0, y0], i, arr) => {
+      const [x1, y1] = arr[(i + 1) % arr.length];
+      acc.push(x0, y0, (x0 + x1) / 2, (y0 + y1) / 2);
+      return acc;
+    },
+    ['M', ...points[0], 'Q']
+  );
+  d.push('Z');
+  return d.join(' ');
+}
+
+/* 把一系列笔画点([x,y,pressure]...) 渲染成 SVG path 填进指定的 svg */
+function drawStroke(svgEl, pts, opts={}){
+  const stroke = getStroke(pts, {
+    size: opts.size || 4,
+    thinning: opts.thinning ?? 0.6,
+    smoothing: opts.smoothing ?? 0.5,
+    streamline: opts.streamline ?? 0.45,
+    easing: t => t,
+    start: { taper: opts.taperStart ?? 20 },
+    end:   { taper: opts.taperEnd   ?? 20 },
+  });
+  const d = getSvgPathFromStroke(stroke);
+  const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+  path.setAttribute('d', d);
+  path.setAttribute('fill', opts.fill || '#2a2014');
+  svgEl.appendChild(path);
+}
+
+/* ---- Rose: 几笔画一朵侧视玫瑰 ---- */
+(function drawRose(){
+  const svg = document.getElementById('pf-rose');
+  /* stem */
+  drawStroke(svg, [
+    [80, 70, 0.6],[79, 80, 0.8],[80, 95, 1.0],[81, 110, 0.8],[80, 130, 0.6],[78, 145, 0.4]
+  ], { size: 6 });
+  /* leaf */
+  drawStroke(svg, [
+    [80, 110, 0.4],[70, 108, 0.7],[58, 114, 0.9],[50, 122, 0.7],[55, 128, 0.4]
+  ], { size: 5, fill:'#3a4f2a' });
+  drawStroke(svg, [
+    [55, 128, 0.4],[68, 122, 0.8],[78, 114, 0.5]
+  ], { size: 5, fill:'#3a4f2a' });
+  /* rose outer head (outline circle-ish) */
+  drawStroke(svg, [
+    [80, 25, 0.3],[102, 30, 0.7],[115, 48, 1.0],[112, 68, 0.9],
+    [95, 78, 0.7],[70, 78, 0.7],[50, 70, 0.9],[45, 52, 1.0],
+    [52, 32, 0.7],[72, 25, 0.3]
+  ], { size: 6 });
+  /* inner swirl (the rose heart) */
+  drawStroke(svg, [
+    [70, 52, 0.3],[80, 45, 0.6],[92, 52, 0.9],[92, 62, 0.8],[80, 68, 0.6],[70, 62, 0.5],[68, 52, 0.4],[76, 48, 0.3]
+  ], { size: 4 });
+  drawStroke(svg, [
+    [76, 55, 0.3],[82, 53, 0.7],[85, 58, 0.6],[80, 60, 0.3]
+  ], { size: 3 });
+})();
+
+/* ---- Daisy: 1 中心 + 若干花瓣各一笔 ---- */
+(function drawDaisy(){
+  const svg = document.getElementById('pf-daisy');
+  /* stem */
+  drawStroke(svg, [
+    [80, 70, 0.5],[80, 90, 0.8],[82, 110, 0.9],[80, 130, 0.7],[79, 148, 0.4]
+  ], { size: 5 });
+  /* leaf */
+  drawStroke(svg, [
+    [80, 115, 0.3],[94, 112, 0.7],[106, 118, 0.9],[108, 126, 0.6],[100, 128, 0.3]
+  ], { size: 5, fill:'#3a4f2a' });
+  /* petals - each is a lens shape drawn as a loop */
+  const cx=80, cy=50, inner=10, outer=26;
+  const nPetals = 10;
+  for(let i=0; i<nPetals; i++){
+    const angle = (i/nPetals) * Math.PI * 2 - Math.PI/2;
+    const tipX = cx + Math.cos(angle) * outer;
+    const tipY = cy + Math.sin(angle) * outer;
+    const baseX = cx + Math.cos(angle) * inner;
+    const baseY = cy + Math.sin(angle) * inner;
+    /* draw 1 petal as outline: base → side1 → tip → side2 → base */
+    const perpA = angle + Math.PI/2;
+    const w = 5;
+    drawStroke(svg, [
+      [baseX + Math.cos(perpA)*2, baseY + Math.sin(perpA)*2, 0.3],
+      [(baseX+tipX)/2 + Math.cos(perpA)*w, (baseY+tipY)/2 + Math.sin(perpA)*w, 0.8],
+      [tipX, tipY, 1.0],
+      [(baseX+tipX)/2 - Math.cos(perpA)*w, (baseY+tipY)/2 - Math.sin(perpA)*w, 0.8],
+      [baseX - Math.cos(perpA)*2, baseY - Math.sin(perpA)*2, 0.3]
+    ], { size: 3.5 });
+  }
+  /* yellow center */
+  drawStroke(svg, [
+    [73, 50, 0.4],[80, 44, 0.8],[87, 50, 0.9],[87, 56, 0.8],[80, 58, 0.6],[73, 56, 0.4],[73, 50, 0.3]
+  ], { size: 8, fill:'#d4a74a' });
+})();
+
+/* ---- Tulip: 3 瓣杯形 ---- */
+(function drawTulip(){
+  const svg = document.getElementById('pf-tulip');
+  /* stem */
+  drawStroke(svg, [
+    [80, 70, 0.6],[80, 90, 0.9],[82, 115, 1.0],[80, 140, 0.7],[78, 152, 0.4]
+  ], { size: 6 });
+  /* leaf (long curved) */
+  drawStroke(svg, [
+    [80, 110, 0.3],[64, 112, 0.7],[48, 128, 0.9],[44, 148, 0.6]
+  ], { size: 5, fill:'#3a4f2a' });
+  /* back petal (center tall) */
+  drawStroke(svg, [
+    [80, 70, 0.4],[66, 58, 0.8],[62, 35, 1.0],[80, 15, 0.9],[98, 35, 1.0],[94, 58, 0.8],[80, 70, 0.4]
+  ], { size: 5 });
+  /* front petal left */
+  drawStroke(svg, [
+    [80, 70, 0.4],[60, 62, 0.8],[48, 42, 1.0],[60, 24, 0.8],[68, 40, 0.7],[74, 58, 0.5],[80, 70, 0.4]
+  ], { size: 5 });
+  /* front petal right */
+  drawStroke(svg, [
+    [80, 70, 0.4],[100, 62, 0.8],[112, 42, 1.0],[100, 24, 0.8],[92, 40, 0.7],[86, 58, 0.5],[80, 70, 0.4]
+  ], { size: 5 });
+})();
+
+
+/* ============ E: Tatyana 风 —— 多条连续线层叠, 没有色块 (色之后加) ============
+   规则: 线是多根, 但每一根都是一笔不断的流畅手势.
+   叠加起来构成更丰富的花. perfect-freehand 保留真笔触质感. */
+
+/* 在 svg 里画一笔带 blur 的软色笔 */
+function addSoftStroke(svgEl, pts, color, opacity, size, blurAmt){
+  if(!window.__getStroke) return;
+  const stroke = window.__getStroke(pts, {
+    size: size || 12,
+    thinning: 0.65,
+    smoothing: 0.7,
+    streamline: 0.55,
+    start: { taper: 30 },
+    end:   { taper: 40 },
+  });
+  if(!stroke.length) return;
+  const d = (() => {
+    const arr = ['M', ...stroke[0], 'Q'];
+    stroke.forEach(([x0, y0], i) => {
+      const [x1, y1] = stroke[(i+1) % stroke.length];
+      arr.push(x0, y0, (x0+x1)/2, (y0+y1)/2);
+    });
+    arr.push('Z');
+    return arr.join(' ');
+  })();
+  const path = document.createElementNS('http://www.w3.org/2000/svg','path');
+  path.setAttribute('d', d);
+  path.setAttribute('fill', color);
+  path.setAttribute('opacity', opacity ?? 0.65);
+  if(blurAmt) path.setAttribute('filter', `blur(${blurAmt}px)`);
+  svgEl.appendChild(path);
+}
+
+/* ====== 辅助: 多次抖动重画同一条路径 ====== */
+function multiStroke(svg, pts, opts){
+  const count = opts.count || 3;
+  const jitter = opts.jitter ?? 0.8;
+  for(let i=0; i<count; i++){
+    const j = pts.map(([x,y,p]) => [
+      x + (Math.random()-0.5)*jitter,
+      y + (Math.random()-0.5)*jitter,
+      p * (0.85 + Math.random()*0.3)
+    ]);
+    drawStroke(svg, j, opts);
+  }
+}
+/* 辅助: 区域平行排线(短线阴影) */
+function hatch(svg, x0, y0, x1, y1, count, spread, size, angle){
+  const rad = (angle || 0) * Math.PI/180;
+  const dx = Math.cos(rad), dy = Math.sin(rad);
+  const perpX = -dy, perpY = dx;
+  for(let i=0; i<count; i++){
+    const t = (i/(count-1) - 0.5) * spread;
+    const ox = perpX*t, oy = perpY*t;
+    const len = 0.5 + Math.random()*0.8;
+    const mx = (x0+x1)/2 + ox + (Math.random()-0.5)*2;
+    const my = (y0+y1)/2 + oy + (Math.random()-0.5)*2;
+    drawStroke(svg, [
+      [x0+ox, y0+oy, 0.3],
+      [mx, my, 0.7*len],
+      [x1+ox, y1+oy, 0.3]
+    ], { size: size||1.2, taperStart:8, taperEnd:10 });
+  }
+}
+/* 辅助: 一堆小点散在区域内 */
+function speckle(svg, cx, cy, r, count, size){
+  for(let i=0;i<count;i++){
+    const a = Math.random()*Math.PI*2;
+    const rr = Math.random()*r;
+    const x = cx + Math.cos(a)*rr;
+    const y = cy + Math.sin(a)*rr;
+    drawStroke(svg, [
+      [x,y,0.6],[x+0.5,y+0.5,0.9],[x+1,y+1,0.4]
+    ], { size: size||1.3 });
+  }
+}
+/* 辅助: 一条曲线上间隔排小羽毛状/叶脉 */
+function veins(svg, basePts, count, offset, size){
+  for(let i=0; i<count; i++){
+    const t = (i+1)/(count+1);
+    const idx = Math.floor(t*(basePts.length-1));
+    const [x, y] = basePts[idx];
+    const dir = (i%2 === 0 ? 1 : -1);
+    drawStroke(svg, [
+      [x, y, 0.3],
+      [x + offset*dir*0.6, y + offset*0.4, 0.7],
+      [x + offset*dir, y + offset*0.9, 0.3]
+    ], { size: size||1, taperStart:5, taperEnd:6 });
+  }
+}
+
+/* ====== ROSE: ~60 笔, 3 次重描外轮廓 + 内瓣层叠 + 底部阴影排线 + 叶脉 ====== */
+(function(){
+  if(!window.__getStroke){ setTimeout(arguments.callee, 100); return; }
+  const ink = document.getElementById('e-ink-rose');
+  /* 1. 主茎 3 道重描 */
+  multiStroke(ink, [[82,156,0.3],[82,138,0.6],[84,118,0.9],[82,98,1.0],[80,82,0.9],[78,72,0.5]],
+    { size:2, count:3, jitter:1.2, taperStart:14, taperEnd:18 });
+  /* 2. 右下大叶 3 道 */
+  multiStroke(ink, [[82,108,0.3],[96,106,0.7],[114,112,1.0],[122,122,0.9],[116,130,0.7],[100,126,0.5],[84,118,0.3]],
+    { size:1.6, count:3, jitter:1.0 });
+  /* 2b. 叶脉 4 条 */
+  for(let i=0;i<4;i++){
+    const t = 0.2 + i*0.2;
+    const baseX = 82 + (118-82)*t;
+    const baseY = 108 + (130-108)*t;
+    drawStroke(ink, [[baseX,baseY-3,0.3],[baseX+2,baseY,0.6],[baseX+4,baseY+3,0.3]], { size:1, taperStart:4, taperEnd:6 });
+  }
+  /* 3. 左小叶 3 道 */
+  multiStroke(ink, [[80,90,0.3],[66,92,0.7],[54,100,1.0],[60,108,0.8],[72,104,0.6],[80,94,0.3]],
+    { size:1.5, count:3, jitter:0.9 });
+  for(let i=0;i<3;i++){ drawStroke(ink, [[68-i*3,95,0.3],[64-i*3,100,0.6],[60-i*3,104,0.3]], { size:0.9 }); }
+  /* 4. 花萼 2 道 */
+  multiStroke(ink, [[72,72,0.4],[76,78,0.8],[84,78,0.8],[88,72,0.4]], { size:1.6, count:2, jitter:0.8 });
+  /* 5. 玫瑰外轮廓 左半 3 道 */
+  multiStroke(ink, [[78,68,0.4],[64,60,0.8],[52,50,1.0],[46,36,0.9],[54,22,0.8],[70,16,0.6]],
+    { size:2.2, count:3, jitter:1.3 });
+  /* 6. 玫瑰外轮廓 右半 3 道 */
+  multiStroke(ink, [[82,68,0.4],[98,62,0.8],[112,50,1.0],[116,36,0.9],[108,22,0.8],[92,16,0.6],[70,16,0.3]],
+    { size:2.2, count:3, jitter:1.3 });
+  /* 7. 内瓣 1 (左卷) 2 道 */
+  multiStroke(ink, [[62,42,0.3],[58,32,0.7],[68,26,1.0],[80,28,0.9],[86,38,0.7],[80,46,0.5],[70,44,0.3]],
+    { size:1.5, count:2, jitter:1.0 });
+  /* 8. 内瓣 2 (右卷) 2 道 */
+  multiStroke(ink, [[82,44,0.3],[92,38,0.7],[96,28,1.0],[88,24,0.9],[80,30,0.7],[82,40,0.5]],
+    { size:1.5, count:2, jitter:1.0 });
+  /* 9. 花心卷 2 道 */
+  multiStroke(ink, [[76,38,0.3],[72,42,0.7],[76,46,0.9],[82,44,0.6]], { size:1.2, count:2, jitter:0.6 });
+  /* 10. 花心一撇 */
+  drawStroke(ink, [[79,36,0.4],[82,40,0.8],[79,42,0.3]], { size:1.2 });
+  /* 11. 花头底部阴影排线 (~14 条斜线) */
+  hatch(ink, 56, 58, 104, 68, 14, 14, 0.9, 20);
+  /* 12. 花心额外碎线 */
+  for(let i=0;i<8;i++){
+    const x = 70 + Math.random()*24;
+    const y = 32 + Math.random()*14;
+    drawStroke(ink, [[x,y,0.4],[x+2+Math.random()*3,y+1+Math.random()*2,0.7],[x+4,y+3,0.3]], { size:0.9 });
+  }
+  /* 13. 左叶阴影排线 */
+  hatch(ink, 58, 98, 78, 104, 6, 8, 0.7, 30);
+  /* 14. 右叶阴影排线 */
+  hatch(ink, 92, 115, 116, 124, 8, 8, 0.7, 25);
+  /* 15. 茎上几个小刺 */
+  for(let i=0;i<3;i++){
+    const y = 90 + i*18;
+    drawStroke(ink, [[82,y,0.4],[78-i,y+3,0.7],[76-i,y+5,0.3]], { size:1, taperStart:3, taperEnd:5 });
+  }
+})();
+
+/* ====== DAISY: ~90 笔, 每瓣 2-3 次重描 + 瓣基阴影 + 密集花心点 ====== */
+(function(){
+  if(!window.__getStroke){ setTimeout(arguments.callee, 100); return; }
+  const ink = document.getElementById('e-ink-daisy');
+  const cx=90, cy=64;
+  /* 主茎 3 道 */
+  multiStroke(ink, [[90,156,0.3],[90,138,0.6],[92,120,0.9],[92,104,1.0],[90,92,0.8],[88,82,0.4]],
+    { size:2, count:3, jitter:1 });
+  /* 右叶 3 道 */
+  multiStroke(ink, [[92,124,0.3],[106,122,0.7],[122,130,1.0],[126,140,0.7],[118,142,0.4],[102,134,0.3]],
+    { size:1.8, count:3, jitter:0.9 });
+  for(let i=0;i<4;i++) drawStroke(ink, [[96+i*6,128+i*1,0.3],[100+i*6,132+i*1,0.6],[104+i*6,136,0.3]], { size:0.9 });
+  /* 左叶 3 道 */
+  multiStroke(ink, [[90,108,0.3],[76,106,0.6],[62,112,0.9],[58,120,0.6],[66,120,0.4],[80,114,0.3]],
+    { size:1.7, count:3, jitter:0.8 });
+  for(let i=0;i<3;i++) drawStroke(ink, [[76-i*4,110,0.3],[72-i*4,114,0.6],[68-i*4,118,0.3]], { size:0.9 });
+  /* 12 花瓣,每瓣 2-3 道轮廓 + 瓣基 2 条阴影 */
+  const nP = 12;
+  for(let i=0;i<nP;i++){
+    const ang = (i/nP)*Math.PI*2 - Math.PI/2;
+    const inner = 11, outer = 30;
+    const tipX = cx + Math.cos(ang)*outer, tipY = cy + Math.sin(ang)*outer;
+    const baseX = cx + Math.cos(ang)*inner, baseY = cy + Math.sin(ang)*inner;
+    const perp = ang + Math.PI/2;
+    const w = 4.5;
+    multiStroke(ink, [
+      [baseX + Math.cos(perp)*1.2, baseY + Math.sin(perp)*1.2, 0.3],
+      [(baseX+tipX)/2 + Math.cos(perp)*w, (baseY+tipY)/2 + Math.sin(perp)*w, 0.8],
+      [tipX + Math.cos(ang)*1.5, tipY + Math.sin(ang)*1.5, 1.0],
+      [(baseX+tipX)/2 - Math.cos(perp)*w, (baseY+tipY)/2 - Math.sin(perp)*w, 0.8],
+      [baseX - Math.cos(perp)*1.2, baseY - Math.sin(perp)*1.2, 0.3]
+    ], { size:1.3, count:2, jitter:0.7 });
+    /* 瓣基 2 条短阴影线 */
+    for(let k=0;k<2;k++){
+      const t = 0.15 + k*0.1;
+      const sX = baseX*(1-t) + tipX*t;
+      const sY = baseY*(1-t) + tipY*t;
+      drawStroke(ink, [
+        [sX + Math.cos(perp)*2, sY + Math.sin(perp)*2, 0.3],
+        [sX - Math.cos(perp)*2, sY - Math.sin(perp)*2, 0.3]
+      ], { size:0.7 });
+    }
+  }
+  /* 花心外圈 2 道 */
+  multiStroke(ink, [
+    [cx+8,cy,0.3],[cx+6,cy-6,0.7],[cx,cy-9,1.0],[cx-6,cy-7,0.9],[cx-9,cy-1,0.8],[cx-7,cy+5,0.7],[cx-1,cy+8,0.6],[cx+5,cy+6,0.4]
+  ], { size:1.4, count:2, jitter:0.7 });
+  /* 花心密集小点 (种子盘) ~24 粒 */
+  speckle(ink, cx, cy, 8, 24, 0.9);
+})();
+
+/* ====== TULIP: ~70 笔, 每瓣 3 次重描 + 瓣内排线 + 多条瓣分线 + 叶脉 ====== */
+(function(){
+  if(!window.__getStroke){ setTimeout(arguments.callee, 100); return; }
+  const ink = document.getElementById('e-ink-tulip');
+  /* 1. 主茎 3 道 */
+  multiStroke(ink, [[86,158,0.3],[88,140,0.6],[90,120,0.9],[90,102,1.0],[88,90,0.8],[86,80,0.4]],
+    { size:2, count:3, jitter:1.1 });
+  /* 2. 左长叶 3 道 */
+  multiStroke(ink, [[88,126,0.3],[70,130,0.7],[52,144,1.0],[48,158,0.8],[58,156,0.5],[78,140,0.3]],
+    { size:1.8, count:3, jitter:1 });
+  /* 2b. 叶脉 3 条 */
+  for(let i=0;i<3;i++){
+    const t = 0.2 + i*0.25;
+    const x = 88 + (48-88)*t;
+    const y = 126 + (158-126)*t;
+    drawStroke(ink, [[x,y,0.3],[x-4,y+3,0.6],[x-8,y+6,0.3]], { size:0.9 });
+  }
+  /* 3. 右小叶 3 道 */
+  multiStroke(ink, [[92,108,0.3],[106,106,0.6],[120,114,0.9],[118,124,0.6],[108,122,0.4],[94,116,0.3]],
+    { size:1.6, count:3, jitter:0.8 });
+  for(let i=0;i<2;i++) drawStroke(ink, [[104+i*4,112,0.3],[108+i*4,116,0.6],[112+i*4,120,0.3]], { size:0.8 });
+  /* 4. 中后大瓣 3 道 */
+  multiStroke(ink, [
+    [86,80,0.3],[78,62,0.7],[78,40,1.0],[88,22,0.9],[100,22,0.7],[106,40,0.9],[104,62,0.8],[94,80,0.4]
+  ], { size:2.2, count:3, jitter:1.2 });
+  /* 5. 左前瓣 3 道 */
+  multiStroke(ink, [
+    [86,80,0.3],[72,72,0.7],[58,54,1.0],[54,36,0.9],[66,32,0.7],[76,46,0.7],[82,66,0.6]
+  ], { size:1.8, count:3, jitter:1 });
+  /* 6. 右前瓣 3 道 */
+  multiStroke(ink, [
+    [94,80,0.3],[108,72,0.7],[122,54,1.0],[126,36,0.9],[114,32,0.7],[104,46,0.7],[98,66,0.6]
+  ], { size:1.8, count:3, jitter:1 });
+  /* 7. 中轴内线 2 道 */
+  multiStroke(ink, [[90,40,0.3],[90,55,0.7],[90,75,0.4]], { size:1.1, count:2, jitter:0.5 });
+  /* 8. 左/右瓣分线 2 道各 */
+  multiStroke(ink, [[80,44,0.3],[82,58,0.6],[84,72,0.3]], { size:0.9, count:2, jitter:0.5 });
+  multiStroke(ink, [[100,44,0.3],[98,58,0.6],[96,72,0.3]], { size:0.9, count:2, jitter:0.5 });
+  /* 9. 花基环 2 道 */
+  multiStroke(ink, [[82,80,0.4],[86,84,0.7],[94,84,0.7],[98,80,0.4]], { size:1.4, count:2, jitter:0.5 });
+  /* 10. 中后瓣内部垂直排线 */
+  hatch(ink, 88, 28, 90, 72, 6, 14, 0.7, 85);
+  /* 11. 左前瓣内部斜排线 */
+  hatch(ink, 62, 38, 76, 68, 5, 10, 0.7, 105);
+  /* 12. 右前瓣内部斜排线 */
+  hatch(ink, 118, 38, 104, 68, 5, 10, 0.7, 75);
+})();
+
+</script>
+
+</body>
+</html>
