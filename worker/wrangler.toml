@@ -1,0 +1,7 @@
+name = "landing-votes"
+main = "src/index.js"
+compatibility_date = "2025-04-01"
+
+[[kv_namespaces]]
+binding = "VOTES"
+id = "c27c3ba902b04263ae8695b51f26cbfe"

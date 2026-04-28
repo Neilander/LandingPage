@@ -209,7 +209,7 @@ header .r a:hover{color:var(--brick)}
 .card .img svg{position:absolute;inset:0;width:100%;height:100%;display:block}
 .card .shine{
   position:absolute;inset:0;pointer-events:none;z-index:3;opacity:0;
-  background:radial-gradient(260px 260px at var(--mx) var(--my), rgba(255,244,225,0.45) 0%, rgba(255,244,225,0) 60%);
+  background:radial-gradient(260px 260px at var(--mx) var(--my), rgba(255,244,225,0.12) 0%, rgba(255,244,225,0) 60%);
   transition:opacity 0.3s ease;mix-blend-mode:screen;
 }
 .card:hover .shine{opacity:1}
@@ -223,11 +223,27 @@ header .r a:hover{color:var(--brick)}
 .card .meta{padding:18px 22px 22px;display:flex;flex-direction:column;gap:6px;background:var(--c3);z-index:5;position:relative}
 .card .meta .name{font-family:'Fraunces',serif;font-weight:700;font-style:normal;font-variation-settings:"opsz" 48,"WONK" 1;font-size:clamp(20px,1.8vw,28px);letter-spacing:-0.01em;color:var(--ink);line-height:1.05}
 .card .meta .name em{font-style:italic;color:var(--c2);font-variation-settings:"opsz" 48,"SOFT" 80,"WONK" 1;transition:color 0.4s}
+body.lang-cn .card .meta .name em{font-style:normal;font-variation-settings:inherit;font-size:inherit;font-weight:inherit}
 .card .meta .sub{font-family:'Noto Sans SC','Inter',sans-serif;font-size:12px;color:var(--ink-dim);letter-spacing:0.02em;line-height:1.55;min-height:4.2em}
 .card .meta .row2{display:flex;justify-content:space-between;align-items:center;margin-top:10px}
 .card .meta .kind{font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:0.24em;text-transform:uppercase;color:var(--ink-dim)}
 .card .meta .cta{font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:0.24em;text-transform:uppercase;padding:7px 13px;border-radius:999px;border:1px solid var(--ink);color:var(--ink);background:transparent;transition:background 0.25s,color 0.25s}
 .card:hover .meta .cta{background:var(--ink);color:var(--cream)}
+.card .meta .cta-row{display:flex;gap:6px;align-items:center}
+.card .meta .cta-wip{
+  font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:0.22em;text-transform:uppercase;
+  padding:7px 11px;border-radius:999px;border:1px dashed rgba(27,24,21,0.3);
+  color:var(--ink-dim);background:transparent;
+}
+.card .meta .cta-vote{
+  cursor:none;font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:0.18em;text-transform:uppercase;
+  padding:7px 11px;border-radius:999px;border:1px solid var(--c2);color:var(--c2);background:transparent;
+  display:inline-flex;align-items:center;gap:6px;
+  transition:background 0.2s,color 0.2s,opacity 0.2s;
+}
+.card .meta .cta-vote:hover{background:var(--c2);color:var(--cream)}
+.card .meta .cta-vote.voted{background:var(--c2);color:var(--cream);opacity:0.85}
+.card .meta .cta-vote:disabled{cursor:default}
 
 /* palette rotation per card (subtle variety) */
 .card[data-v="1"]{ --c1:var(--moss); --c2:var(--brick); }
@@ -239,7 +255,56 @@ header .r a:hover{color:var(--brick)}
 
 .card{opacity:0;transform:translateY(24px)}
 
-.cursor{position:fixed;top:0;left:0;width:20px;height:20px;border-radius:50%;border:1.2px solid var(--ink);pointer-events:none;z-index:200;transform:translate(-50%,-50%);mix-blend-mode:difference}
+.cursor{position:fixed;top:0;left:0;width:20px;height:20px;border-radius:50%;border:2.5px solid var(--ink);pointer-events:none;z-index:200;transform:translate(-50%,-50%);mix-blend-mode:difference}
+
+/* ---------- contact modal ---------- */
+.contact-modal{position:fixed;inset:0;z-index:300;display:flex;align-items:center;justify-content:center;opacity:0;pointer-events:none;transition:opacity 0.3s ease}
+.contact-modal.open{opacity:1;pointer-events:auto}
+.contact-modal .backdrop{position:absolute;inset:0;background:rgba(27,24,21,0.45);backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px)}
+.contact-modal .card{
+  position:relative;background:var(--cream);border-radius:20px;padding:38px 36px 32px;
+  width:min(380px,90vw);text-align:center;
+  box-shadow:0 24px 60px -20px rgba(27,24,21,0.45);
+  transform:translateY(14px) scale(0.96);transition:transform 0.32s cubic-bezier(0.2,0.7,0.2,1);
+}
+.contact-modal.open .card{transform:translateY(0) scale(1)}
+.contact-modal .close{
+  position:absolute;top:12px;right:14px;background:transparent;border:none;
+  font-size:24px;line-height:1;padding:4px 10px;color:var(--ink-dim);cursor:none;
+  transition:color 0.2s;
+}
+.contact-modal .close:hover{color:var(--ink)}
+.contact-modal .avatar{
+  width:88px;height:88px;border-radius:50%;object-fit:cover;
+  margin:0 auto 16px;display:block;
+  background:var(--paper-2);border:2px solid var(--ink);
+}
+.contact-modal .avatar.no-img{
+  display:flex;align-items:center;justify-content:center;
+  font-family:'Fraunces',serif;font-style:italic;font-weight:600;
+  font-variation-settings:"opsz" 36,"WONK" 1;font-size:32px;color:var(--ink);
+}
+.contact-modal h3{
+  font-family:'Fraunces',serif;font-weight:600;font-style:italic;
+  font-variation-settings:"opsz" 32,"WONK" 1;font-size:22px;color:var(--ink);
+  margin-bottom:6px;letter-spacing:0;
+}
+.contact-modal p{
+  font-family:'Noto Serif SC','Fraunces',serif;font-size:14px;line-height:1.7;
+  color:var(--ink-dim);margin-bottom:22px;
+}
+.contact-modal .link{
+  display:inline-block;padding:10px 22px;border-radius:999px;
+  border:1px solid var(--ink);color:var(--ink);background:transparent;text-decoration:none;
+  font-family:'JetBrains Mono',monospace;font-size:11px;letter-spacing:0.24em;text-transform:uppercase;
+  transition:background 0.2s,color 0.2s;cursor:none;
+}
+.contact-modal .link:hover{background:var(--ink);color:var(--cream)}
+.contact-modal .email{
+  display:block;margin-top:14px;font-family:'JetBrains Mono',monospace;font-size:10px;
+  letter-spacing:0.18em;color:var(--ink-dim);text-decoration:none;transition:color 0.2s;
+}
+.contact-modal .email:hover{color:var(--ink)}
 
 footer{display:grid;grid-template-columns:1fr 1fr 1fr;align-items:center;padding:24px clamp(32px,4vw,64px);border-top:1px solid rgba(27,24,21,0.15);font-family:'JetBrains Mono',monospace;font-size:11px;letter-spacing:0.24em;text-transform:uppercase;color:var(--ink-dim)}
 footer .c{text-align:center;font-family:'Fraunces',serif;font-style:italic;color:var(--ink);letter-spacing:0;font-variation-settings:"opsz" 16,"WONK" 1}
@@ -257,7 +322,7 @@ footer a:hover{color:var(--brick)}
   <div class="c"><span class="only-en">a patch of my own</span><span class="only-cn">一块自留地</span></div>
   <div class="r">
     <button class="lang-toggle" id="langToggle"></button>
-    <a href="#contact"><span class="only-en">contact</span><span class="only-cn">联系</span></a>
+    <a href="#contact" id="contactBtn"><span class="only-en">contact</span><span class="only-cn">联系</span></a>
   </div>
 </header>
 
@@ -265,16 +330,17 @@ footer a:hover{color:var(--brick)}
   <div class="eyebrow"><span class="only-en">vol. i · spring 2026</span><span class="only-cn">第一卷 · 2026 春</span></div>
   <h1>Neil<span class="apos">'</span>s <span class="land">Land</span>.</h1>
   <div class="sub">
-    <div class="only-cn cn">2028 年，读研结束的 Neil 花光了家里所有的钱，却发现 AI 已经让岗位<em>缩招了 90%</em>，依然找不到工作。就在这时，他觉醒了穿越系统——回到 2026 年，<em>赶在通道关闭之前</em>，好好学习 AI。</div>
-    <div class="only-en en">2028: fresh out of grad school, Neil has spent every last yuan, only to find AI has cut open roles by 90%. No job comes. Then a time-travel system awakens inside him — he is thrown back to 2026, and must learn AI well, <em>before the portal closes</em>.</div>
+    <div class="only-cn cn">你好！我是 <em>Neil</em>，一名游戏策划，也是 <em>AI 探索者</em>，vibecoding 沉迷中。<br>喜欢做点好玩、实用、好看的产品，欢迎体验交流 👋</div>
+    <div class="only-en en">Hi! I'm <em>Neil</em> — a game designer and <em>AI explorer</em>, currently hooked on vibecoding.<br>I like making products that are fun, useful, and easy on the eyes. Try them, say hi 👋</div>
   </div>
 
   <div class="spacer"></div>
 
   <div class="kpi">
-    <div class="k"><b>06</b><span><span class="only-en">on shelf</span><span class="only-cn">在架</span></span></div>
+    <div class="k"><b>05</b><span><span class="only-en">on shelf</span><span class="only-cn">在架</span></span></div>
+    <div class="k"><b>02</b><span><span class="only-en">products</span><span class="only-cn">产品</span></span></div>
     <div class="k"><b>02</b><span><span class="only-en">tools</span><span class="only-cn">工具</span></span></div>
-    <div class="k"><b>04</b><span><span class="only-en">experiments</span><span class="only-cn">实验</span></span></div>
+    <div class="k"><b>01</b><span><span class="only-en">experiments</span><span class="only-cn">实验</span></span></div>
   </div>
 
   <!-- 右上: 飘落的几片叶子 -->
@@ -367,13 +433,31 @@ footer a:hover{color:var(--brick)}
 
 <section class="filters below-fold" id="filters">
   <span class="label"><span class="only-en">filter</span><span class="only-cn">筛选</span></span>
-  <button class="on" data-f="all"><span class="only-en">all · 06</span><span class="only-cn">全部 · 06</span></button>
+  <button class="on" data-f="all"><span class="only-en">all · 05</span><span class="only-cn">全部 · 05</span></button>
   <button data-f="product"><span class="only-en">products</span><span class="only-cn">产品</span></button>
   <button data-f="experiment"><span class="only-en">experiments</span><span class="only-cn">实验</span></button>
   <button data-f="tool"><span class="only-en">tools</span><span class="only-cn">工具</span></button>
 </section>
 
 <section class="grid below-fold" id="grid"></section>
+
+<!-- ===== 联系浮窗 ===== -->
+<!-- 替换头像: 把 src 改成你的图片路径, 例如 ./assets/avatar.jpg -->
+<!-- 替换小红书链接: 把下面 .link 的 href 换成你的小红书主页 URL -->
+<div class="contact-modal" id="contactModal" aria-hidden="true">
+  <div class="backdrop" data-close></div>
+  <div class="card">
+    <button class="close" id="contactClose" aria-label="close" data-close>×</button>
+    <img class="avatar" id="contactAvatar" src="./assets/avatar.webp" alt="Neil"
+         onerror="this.outerHTML='<div class=&quot;avatar no-img&quot;>N</div>'"/>
+    <h3>重生的 Neil</h3>
+    <p><span class="only-en">Find me on Xiaohongshu — say hi 👋</span><span class="only-cn">欢迎关注我的小红书 👋</span></p>
+    <a class="link" href="https://www.xiaohongshu.com/user/profile/63407329000000001802f869" target="_blank" rel="noopener">
+      <span class="only-en">visit ↗</span><span class="only-cn">前往 ↗</span>
+    </a>
+    <a class="email" href="mailto:violandernnn@gmail.com">violandernnn@gmail.com</a>
+  </div>
+</div>
 
 <footer id="contact">
   <div class="l"><span class="only-en">forever under construction</span><span class="only-cn">持续施工中</span></div>
@@ -384,8 +468,40 @@ footer a:hover{color:var(--brick)}
 <script>
 const ITEMS = [
   {
-    slug:'frontend-effects-lab', v:1, kind:'experiment',
-    name:'Frontend <em>Effects</em> Lab',
+    slug:'mobile-ui-replicator', v:1, kind:'tool',
+    nameEn:'Mobile UI <em>Replicator</em>',
+    nameCn:'Mobile Ui <em>Replicator</em>',
+    subEn:'A Claude skill that turns a mobile screenshot into an interactive HTML page.',
+    subCn:'一个 Claude skill，把手机界面截图复现成可以交互的 html。',
+    href:'./tools/mobile-ui-replicator/index.html',
+    art: `<rect width='300' height='300' fill='var(--c2)'/>
+          <rect x='86' y='40' width='108' height='220' rx='16' fill='var(--c1)'/>
+          <rect x='94' y='54' width='92' height='192' rx='6' fill='var(--c3)'/>
+          <rect x='102' y='64' width='76' height='26' rx='3' fill='var(--c2)' opacity='0.75'/>
+          <rect x='102' y='98' width='34' height='38' rx='3' fill='var(--c1)' opacity='0.55'/>
+          <rect x='144' y='98' width='34' height='38' rx='3' fill='var(--c1)' opacity='0.55'/>
+          <rect x='102' y='146' width='76' height='12' rx='2' fill='var(--c2)' opacity='0.45'/>
+          <rect x='102' y='164' width='76' height='12' rx='2' fill='var(--c2)' opacity='0.45'/>
+          <rect x='102' y='182' width='76' height='12' rx='2' fill='var(--c2)' opacity='0.45'/>
+          <rect x='102' y='208' width='76' height='28' rx='4' fill='var(--c1)' opacity='0.4'/>
+          <g stroke='var(--c1)' stroke-width='1' stroke-dasharray='3 3' opacity='0.7' fill='none'>
+            <line x1='200' y1='80' x2='240' y2='80'/>
+            <line x1='200' y1='118' x2='240' y2='118'/>
+            <line x1='200' y1='168' x2='240' y2='168'/>
+            <line x1='200' y1='220' x2='240' y2='220'/>
+          </g>
+          <g fill='var(--c1)' opacity='0.6'>
+            <rect x='244' y='72' width='34' height='16' rx='2'/>
+            <rect x='244' y='110' width='34' height='16' rx='2'/>
+            <rect x='244' y='160' width='34' height='16' rx='2'/>
+            <rect x='244' y='212' width='34' height='16' rx='2'/>
+          </g>
+          <text x='150' y='278' font-family='JetBrains Mono' font-size='9' letter-spacing='3' text-anchor='middle' fill='var(--c3)' opacity='0.85'>UI · EXTRACT</text>`
+  },
+  {
+    slug:'frontend-effects-lab', v:2, kind:'experiment',
+    nameEn:'Frontend <em>Effects</em> Lab',
+    nameCn:'前端<em>实验室</em>',
     subEn:'Nine screen-recordable web pages, made to feel like pages of a magazine.',
     subCn:'九个可录屏的网页实验，像一本杂志的九页。',
     href:'./effects-lab/index.html',
@@ -396,8 +512,9 @@ const ITEMS = [
           <text x='150' y='70' font-family='JetBrains Mono' font-size='11' letter-spacing='3' text-anchor='middle' fill='var(--c3)' opacity='0.9'>09 · EFFECTS</text>`
   },
   {
-    slug:'two-min-app', v:2, kind:'product',
-    name:'2 Min <em>App</em>',
+    slug:'two-min-app', v:3, kind:'product', status:'wip',
+    nameEn:'2 Min <em>App</em>',
+    nameCn:'2Min<em>App</em>',
     subEn:'Type a prompt, get a desktop app in two minutes. Electron + LLM + pre-baked templates.',
     subCn:'写段提示词，两分钟生成桌面应用。Electron + LLM + 预制模板。',
     href:'#',
@@ -409,10 +526,11 @@ const ITEMS = [
           <rect x='100' y='222' width='100' height='6' rx='2' fill='var(--c1)'/>`
   },
   {
-    slug:'vtuber-web', v:3, kind:'experiment',
-    name:'VTuber <em>Story</em>',
-    subEn:'A 178-node branching visual novel engine with a fan-interest graph and live runtime.',
-    subCn:'178 节点的分支叙事引擎，带粉丝兴趣图谱和实时运行时。',
+    slug:'vtuber-web', v:4, kind:'product', status:'wip',
+    nameEn:'VTuber <em>Story</em>',
+    nameCn:'重生成为<em>百万大V</em>',
+    subEn:'Back to 2022. Become a VTuber. Can you run the channel and rise to a million-sub star?',
+    subCn:'重回 2022，成为虚拟主播，你能完美运营，成为百万大V吗？',
     href:'#',
     art: `<rect width='300' height='300' fill='var(--c2)'/>
           <circle cx='150' cy='130' r='44' fill='var(--c1)'/>
@@ -433,49 +551,9 @@ const ITEMS = [
           </g>`
   },
   {
-    slug:'agent-studio', v:4, kind:'experiment',
-    name:'Agent <em>Studio</em>',
-    subEn:'A side-view office where AI agents walk to terminals and write code in front of you.',
-    subCn:'一间侧视角办公室，AI 员工走到终端前，当你面敲代码。',
-    href:'#',
-    art: `<rect width='300' height='300' fill='var(--c2)'/>
-          <rect x='0' y='210' width='300' height='90' fill='var(--c1)' opacity='0.5'/>
-          <rect x='40' y='140' width='70' height='100' fill='var(--c1)'/>
-          <rect x='120' y='120' width='70' height='120' fill='var(--c3)'/>
-          <rect x='200' y='150' width='60' height='90' fill='var(--c1)'/>
-          <rect x='130' y='140' width='50' height='36' fill='var(--c2)'/>
-          <text x='155' y='164' font-family='JetBrains Mono' font-size='11' text-anchor='middle' fill='var(--c3)'>$_</text>`
-  },
-  {
-    slug:'skill-sandbox', v:5, kind:'tool',
-    name:'Skill <em>Sandbox</em>',
-    subEn:'A/B test Claude skills against their MCP equivalents. Same prompt, two pipelines, one winner.',
-    subCn:'Claude skill 与 MCP 的对比沙盒。同一提示，两条管道，见高下。',
-    href:'#',
-    art: `<rect width='300' height='300' fill='var(--c2)'/>
-          <rect x='50' y='100' width='90' height='130' rx='6' fill='var(--c1)'/>
-          <rect x='160' y='100' width='90' height='130' rx='6' fill='var(--c3)'/>
-          <text x='95' y='175' font-family='Fraunces' font-style='italic' font-weight='700' font-size='40' text-anchor='middle' fill='var(--c3)'>A</text>
-          <text x='205' y='175' font-family='Fraunces' font-style='italic' font-weight='700' font-size='40' text-anchor='middle' fill='var(--c1)'>B</text>
-          <line x1='150' y1='90' x2='150' y2='240' stroke='var(--c3)' stroke-width='1' stroke-dasharray='3 3' opacity='0.6'/>`
-  },
-  {
-    slug:'float', v:6, kind:'experiment',
-    name:'Float <em>Prototype</em>',
-    subEn:'A native Swift floating-window desktop companion that watches your screen and assists.',
-    subCn:'Swift 原生悬浮窗桌面助手，看着你的屏幕随时搭把手。',
-    href:'#',
-    art: `<rect width='300' height='300' fill='var(--c2)'/>
-          <rect x='40' y='50' width='220' height='160' rx='8' fill='var(--c1)' opacity='0.45'/>
-          <rect x='100' y='100' width='120' height='80' rx='16' fill='var(--c3)'/>
-          <circle cx='116' cy='122' r='4' fill='var(--c1)'/>
-          <circle cx='132' cy='122' r='4' fill='var(--c1)'/>
-          <circle cx='148' cy='122' r='4' fill='var(--c1)'/>
-          <rect x='112' y='138' width='96' height='28' rx='4' fill='var(--c1)' opacity='0.25'/>`
-  },
-  {
-    slug:'flower-language', v:7, kind:'tool',
-    name:'Flower <em>Language</em>',
+    slug:'flower-language', v:5, kind:'tool',
+    nameEn:'Flower <em>Language</em>',
+    nameCn:'尽在<em>花语</em>中',
     subEn:'Say a word, meet a flower. Particles draw 26 hand-pathed blooms from your mood.',
     subCn:'说一个词，遇见一朵花。粒子顺着心情画出 26 朵花。',
     href:'./tools/flower-lang/index.html',
@@ -507,11 +585,21 @@ function render(filter){
   gridEl.innerHTML = '';
   ITEMS.forEach((it, i) => {
     if(filter && filter !== 'all' && it.kind !== filter) return;
-    const a = document.createElement('a');
-    a.className = 'card';
+    const isWip = it.status === 'wip';
+    const a = document.createElement(isWip ? 'div' : 'a');
+    a.className = 'card' + (isWip ? ' card-wip' : '');
     a.dataset.v = it.v;
-    a.href = it.href;
+    if(!isWip) a.href = it.href;
     const kindCn = { experiment:'实验', product:'产品', tool:'工具' }[it.kind] || it.kind;
+    const ctaHtml = isWip
+      ? `<div class="cta-row">
+           <span class="cta-wip"><span class="only-en">in dev</span><span class="only-cn">制作中</span></span>
+           <button type="button" class="cta-vote" data-vote-id="${it.slug}">
+             <span><span class="only-en">nudge</span><span class="only-cn">催更</span></span>
+             <span class="vote-count">· …</span>
+           </button>
+         </div>`
+      : `<span class="cta"><span class="only-en">open ↗</span><span class="only-cn">打开 ↗</span></span>`;
     a.innerHTML = `
       <div class="img">
         <svg viewBox="0 0 300 300" preserveAspectRatio="xMidYMid slice">${it.art}</svg>
@@ -521,11 +609,11 @@ function render(filter){
         <div class="idx">${String(i+1).padStart(2,'0')}</div>
       </div>
       <div class="meta">
-        <div class="name">${it.name}</div>
+        <div class="name"><span class="only-en">${it.nameEn}</span><span class="only-cn">${it.nameCn}</span></div>
         <div class="sub"><span class="only-en">${it.subEn}</span><span class="only-cn">${it.subCn}</span></div>
         <div class="row2">
           <span class="kind">${it.slug}</span>
-          <span class="cta"><span class="only-en">open ↗</span><span class="only-cn">打开 ↗</span></span>
+          ${ctaHtml}
         </div>
       </div>
     `;
@@ -533,7 +621,70 @@ function render(filter){
   });
   bindCardInteractions();
   revealCards();
+  loadVotes();
 }
+
+/* ---------- vote button (催更) ---------- */
+const VOTE_API = 'https://landing-votes.violandernnn.workers.dev';
+const VOTE_MAX_PER_IP = 10;
+const LS_VOTED = 'neilsland-voted-v2';
+function getVotedMap(){
+  try { return JSON.parse(localStorage.getItem(LS_VOTED) || '{}'); }
+  catch { return {}; }
+}
+function bumpVotedLocal(id){
+  const m = getVotedMap();
+  m[id] = (m[id] || 0) + 1;
+  localStorage.setItem(LS_VOTED, JSON.stringify(m));
+  return m[id];
+}
+async function loadVotes(){
+  const btns = document.querySelectorAll('.cta-vote');
+  if(!btns.length) return;
+  const local = getVotedMap();
+  try{
+    const res = await fetch(VOTE_API + '/votes');
+    const data = await res.json();
+    btns.forEach(btn => {
+      const id = btn.dataset.voteId;
+      const n = data[id] || 0;
+      btn.querySelector('.vote-count').textContent = '· ' + n;
+      if((local[id] || 0) >= VOTE_MAX_PER_IP){
+        btn.classList.add('voted');
+        btn.disabled = true;
+      }
+    });
+  } catch(e) {
+    btns.forEach(btn => { btn.querySelector('.vote-count').textContent = '· —'; });
+  }
+}
+document.addEventListener('click', async (e) => {
+  const btn = e.target.closest('.cta-vote');
+  if(!btn) return;
+  e.preventDefault();
+  e.stopPropagation();
+  if(btn.disabled) return;
+  btn.disabled = true;
+  const id = btn.dataset.voteId;
+  try{
+    const res = await fetch(VOTE_API + '/vote', {
+      method:'POST',
+      headers:{ 'Content-Type':'application/json' },
+      body: JSON.stringify({ id })
+    });
+    const data = await res.json();
+    btn.querySelector('.vote-count').textContent = '· ' + data.count;
+    bumpVotedLocal(id);
+    if(data.capped){
+      btn.classList.add('voted');
+      // stays disabled
+    } else {
+      btn.disabled = false;
+    }
+  } catch(err){
+    btn.disabled = false;
+  }
+});
 
 /* 3D tilt + shimmer per card */
 function bindCardInteractions(){
@@ -610,6 +761,17 @@ langBtn.addEventListener('click', ()=>{
 applyLang();
 
 render('all');
+
+/* ---------- contact modal ---------- */
+const contactModal = document.getElementById('contactModal');
+const contactBtn = document.getElementById('contactBtn');
+function openContact(e){ if(e) e.preventDefault(); contactModal.classList.add('open'); }
+function closeContact(){ contactModal.classList.remove('open'); }
+if(contactBtn) contactBtn.addEventListener('click', openContact);
+contactModal.addEventListener('click', e => {
+  if(e.target.dataset && 'close' in e.target.dataset) closeContact();
+});
+window.addEventListener('keydown', e => { if(e.key === 'Escape') closeContact(); });
 
 /* cursor */
 const cursorEl = document.querySelector('.cursor');

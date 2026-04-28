@@ -155,10 +155,26 @@ footer b{font-family:'Fraunces',serif;font-style:italic;color:var(--ink);letter-
 .b18{background:linear-gradient(90deg,#efe7d6 0%,#384a33 33%,#c64a2a 66%,#0f0d0a 100%)}
 .b19{background:#17140f}
 .b20{background:linear-gradient(135deg,#384a33 0%,#c64a2a 100%)}
+
+/* back-to-home pill */
+.lab-back{
+  position:fixed;top:18px;left:20px;z-index:500;
+  padding:8px 14px;border-radius:999px;
+  border:1px solid rgba(27,24,21,0.28);
+  background:rgba(246,237,219,0.72);
+  backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);
+  color:var(--ink);text-decoration:none;
+  font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:0.26em;text-transform:uppercase;
+  line-height:1;display:inline-flex;align-items:center;gap:6px;
+  transition:background 0.2s,color 0.2s,border-color 0.2s;
+}
+.lab-back:hover{background:var(--ink);color:var(--cream);border-color:var(--ink)}
 </style>
 </head>
 <body>
 <div class="grain"></div>
+
+<a class="lab-back" href="../index.html" title="back to Neil's Land">← Neil's Land</a>
 
 <header>
   <div class="l">
